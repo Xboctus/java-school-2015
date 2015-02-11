@@ -1,3 +1,4 @@
+import java.io.Console;
 import java.util.*;
 import java.text.*;
 import java.io.*;
@@ -50,10 +51,10 @@ class SchEvent implements Comparable<SchEvent> {
 	{
 		info = eventInfo;
 		owner = user;
-		dFormat = (SimpleDateFormat)SScheduler.dateFormat.clone();
+		dFormat = (SimpleDateFormat)dateFormat.clone();
 		dFormat.setTimeZone(owner.getTimeZone());
 		if (date!=null) {
-			String defaultDate = SScheduler.dateFormat.format(date);
+			String defaultDate = dateFormat.format(date);
 			timeInstant = dFormat.parse(defaultDate);
 		}
 	}
@@ -285,7 +286,7 @@ public class SScheduler {
 						String info = "\n\t"+e.getInfo();
 						String texts = eventsMap.get(e.getDate());
 						eventsMap.put(e.getDate(),
-								((texts==null) ? (e.getDate()+":"+info) :
+								((texts==null) ? (e.getTime()+":"+info) :
 									eventsMap.get(e.getDate())+info));
 					}
 				int i = 1;
@@ -320,7 +321,7 @@ public class SScheduler {
 							if (eachEqEvent.equals(e))
 								System.out.println(new Date()+": "+
 										eachEqEvent.getOwner().getName()+" "
-										+eachEqEvent.getInfo() +" at "+ eachEqEvent.getDate());
+										+eachEqEvent.getInfo() +" at "+ eachEqEvent.getTime());
 					}
 				};
 				t.schedule(task, e.getDate());
