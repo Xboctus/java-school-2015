@@ -1,3 +1,4 @@
+
 import java.util.*;
 import java.text.*;
 import java.io.*;
@@ -50,10 +51,10 @@ class SchEvent implements Comparable<SchEvent> {
 	{
 		info = eventInfo;
 		owner = user;
-		dFormat = (SimpleDateFormat)SScheduler.dateFormat.clone();
+		dFormat = (SimpleDateFormat)dateFormat.clone();
 		dFormat.setTimeZone(owner.getTimeZone());
 		if (date!=null) {
-			String defaultDate = SScheduler.dateFormat.format(date);
+			String defaultDate = dateFormat.format(date);
 			timeInstant = dFormat.parse(defaultDate);
 		}
 	}
@@ -164,6 +165,20 @@ public class SScheduler {
 		if (args.length==4) {
 			String name = args[1], tzStr = args[2],
 					isActiveStr = args[3];
+			boolean isGMT = false;
+			if (tzStr.startsWith("GMT")) {
+				isGMT = true;
+				try {
+					Integer.parseInt(tzStr.substring(3));
+				}
+				catch(NumberFormatException e) {
+					isGMT = false;
+				}
+			}
+			if (!isGMT) {
+				System.out.println("Timezone should be as GMT<number>");
+				return;
+			}
 			boolean isActive = isActiveStr.equals("active");
 			if (isActive || isActiveStr.equals("disabled")) {
 				SchUser existingUser = findUser(name);
@@ -285,7 +300,7 @@ public class SScheduler {
 						String info = "\n\t"+e.getInfo();
 						String texts = eventsMap.get(e.getDate());
 						eventsMap.put(e.getDate(),
-								((texts==null) ? (e.getDate()+":"+info) :
+								((texts==null) ? (e.getTime()+":"+info) :
 									eventsMap.get(e.getDate())+info));
 					}
 				int i = 1;
@@ -320,11 +335,15 @@ public class SScheduler {
 							if (eachEqEvent.equals(e))
 								System.out.println(new Date()+": "+
 										eachEqEvent.getOwner().getName()+" "
-										+eachEqEvent.getInfo() +" at "+ eachEqEvent.getDate());
+										+eachEqEvent.getInfo() +" at "+ eachEqEvent.getTime());
+						while (activeEvents.remove(e)) {};
+						if (activeEvents.isEmpty()) {
+							System.out.println("Finished.");
+							System.exit(0);
+						}
 					}
 				};
 				t.schedule(task, e.getDate());
-				while (activeEvents.remove(e)) {};
 		}
 	}
 	
@@ -337,16 +356,15 @@ public class SScheduler {
 		System.out.print("\n>");
 		Console con = System.console();
 		if (con!=null) {
-			try {
-				BufferedReader rd =  //new BufferedReader(new FileReader("cmds.txt"));
-						new BufferedReader(con.reader());
+			try(BufferedReader rd = //new BufferedReader(new FileReader("cmds.txt"))
+					new BufferedReader(con.reader())
+			) {
 				String cmdStr = rd.readLine();
 				while(!cmdStr.equals("exit")) {
 					parseCmd(cmdStr);
 					System.out.print("\n>");
 					cmdStr = rd.readLine();
 				}
-				rd.close();
 			}
 			catch(IOException e) {
 				System.out.println(e+": "+e.getMessage());
