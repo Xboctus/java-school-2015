@@ -15,6 +15,9 @@ public class Coordinator {
 		private Date date;
 		private TreeMap<String /*name*/, ArrayList<String /*text*/>> user_sch;
 
+		static Timer timer;
+		static int n_tasks;
+
 		ScheduleTask(Date date, TreeMap<String /*name*/, ArrayList<String /*text*/>> user_sch) {
 			this.date = date;
 			this.user_sch = user_sch;
@@ -26,6 +29,10 @@ public class Coordinator {
 				for (String text: e.getValue()) {
 					out.format("%s, %s, %s\n", date.toString(), e.getKey(), text);
 				}
+			}
+			--n_tasks;
+			if (n_tasks == 0) {
+				timer.cancel();
 			}
 		}
 	}
@@ -157,9 +164,8 @@ public class Coordinator {
 
 	public static void main(String[] args) {
 		create_user("user", TimeZone.getTimeZone("GMT+3"), true);
-		GregorianCalendar gc = new GregorianCalendar();
-		gc.set(2015, Calendar.JANUARY, 11, 13, 2, 0);
-		add_event("user", "hello", gc.getTime());
+		add_event("user", "fastEvent", new Date(new Date().getTime() + 1000 * 15));
+		add_event("user", "slowEvent", new Date(new Date().getTime() + 1000*30));
 
 		boolean interactive = true;
 		while (interactive) {
@@ -261,14 +267,18 @@ public class Coordinator {
 
 		HashMap<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>> schedule = new HashMap<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>>();
 		Date now = new Date();
+//		GregorianCalendar gc = new GregorianCalendar();
 		for (User user: users.values()) {
 			if (!user.getActive()) {
 				continue;
 			}
+//			gc.setTimeZone(user.getTimeZone());
 			for (Event event: user.getEvents().values()) {
 				if (event.getDate().compareTo(now) < 0) {
 					continue;
 				}
+//				gc.setTime(event.getDate());
+//				Date date = gc.getTime();
 				TreeMap<String /*name*/, ArrayList<String /*text*/>> date_sch = schedule.get(event.getDate());
 				if (date_sch == null) {
 					schedule.put(event.getDate(), new TreeMap<String /*name*/, ArrayList<String /*text*/>>());
@@ -290,9 +300,10 @@ public class Coordinator {
 		}
 
 		// FIXME: consider user timezones
-		Timer timer = new Timer();
+		ScheduleTask.timer = new Timer();
+		ScheduleTask.n_tasks = schedule.size();
 		for (Map.Entry<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>> e: schedule.entrySet()) {
-			timer.schedule(new ScheduleTask(e.getKey(), e.getValue()), e.getKey());
+			ScheduleTask.timer.schedule(new ScheduleTask(e.getKey(), e.getValue()), e.getKey());
 		}
 	}
 }
