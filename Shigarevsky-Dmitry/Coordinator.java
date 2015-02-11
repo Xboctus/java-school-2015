@@ -1,16 +1,7 @@
 import java.io.PrintWriter;
-import java.util.Scanner;
-import java.util.TreeMap;
-import java.util.HashMap;
-import java.util.TimeZone;
-import java.util.Date;
+import java.util.*;
 import java.text.SimpleDateFormat;
 import java.text.ParseException;
-import java.util.Timer;
-import java.util.TimerTask;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.Collections;
 
 public class Coordinator {
 	private static HashMap<String, User> users = new HashMap<String, User>();
@@ -29,6 +20,7 @@ public class Coordinator {
 			this.user_sch = user_sch;
 		}
 
+		@Override
 		public void run() {
 			for (Map.Entry<String /*name*/, ArrayList<String /*text*/>> e: user_sch.entrySet()) {
 				for (String text: e.getValue()) {
@@ -41,7 +33,7 @@ public class Coordinator {
 	private enum Command {
 		QUIT(null),
 		UADD("User created!"),
-		UREM("User removed!"),
+//		UREM("User removed!"),
 		UMOD("User modified!"),
 		UINFO(null),
 		EADD("Event added!"),
@@ -101,7 +93,7 @@ public class Coordinator {
 			"%s, %s, %s, %d event%s\n",
 			name,
 			user.getTimeZone().getDisplayName(),
-			(user.getActive() ? "active" : "not active"),
+			(user.getActive() ? "active" : "passive"),
 			events.size(),
 			(events.size() == 1 ? "" : "s")
 		);
@@ -165,22 +157,23 @@ public class Coordinator {
 
 	public static void main(String[] args) {
 		create_user("user", TimeZone.getTimeZone("GMT+3"), true);
-		add_event("user", "hello", new Date(0));
+		GregorianCalendar gc = new GregorianCalendar();
+		gc.set(2015, Calendar.JANUARY, 11, 13, 2, 0);
+		add_event("user", "hello", gc.getTime());
 
 		boolean interactive = true;
 		while (interactive) {
 			out.print(">: ");
 			out.flush();
 
-			// FIXME: read entire line to prevent arguments to unknown command from being subsequently interpreted as unknown commands themselves
-			String command = in.next();
+			String[] words = in.nextLine().trim().split("\\s+");
 
 			Error error = null;
 
 			Command c;
 
 			try {
-				c = Command.valueOf(command.toUpperCase());
+				c = Command.valueOf(words[0].toUpperCase());
 			} catch (IllegalArgumentException e) {
 				c = null;
 			}
@@ -190,28 +183,28 @@ public class Coordinator {
 			} else {
 				switch (c) {
 					case UADD: {
-						String name = in.next();
-						String timeZone = in.next();
-						boolean active = in.nextBoolean();
+						String name = words[1];
+						String timeZone = words[2];
+						boolean active = Boolean.parseBoolean(words[3]);
 						error = create_user(name, TimeZone.getTimeZone("GMT" + timeZone), active);
 						break;
 					}
 					case UMOD: {
-						String name = in.next();
-						String timeZone = in.next();
-						boolean active = in.nextBoolean();
+						String name = words[1];
+						String timeZone = words[2];
+						boolean active = Boolean.parseBoolean(words[3]);
 						error = modify_user(name, TimeZone.getTimeZone("GMT" + timeZone), active);
 						break;
 					}
 					case UINFO: {
-						String name = in.next();
+						String name = words[1];
 						error = show_user_info(name);
 						break;
 					}
 					case EADD: {
-						String name = in.next();
-						String text = in.next();
-						String date = in.next();
+						String name = words[1];
+						String text = words[2];
+						String date = words[3];
 						try {
 							error = add_event(name, text, dateFormat.parse(date));
 						} catch (ParseException e) {
@@ -220,16 +213,16 @@ public class Coordinator {
 						break;
 					}
 					case EREM: {
-						String name = in.next();
-						String text = in.next();
+						String name = words[1];
+						String text = words[2];
 						error = remove_event(name, text);
 						break;
 					}
 					case ERAND: {
-						String name = in.next();
-						String text = in.next();
-						String dateFrom = in.next();
-						String dateTo = in.next();
+						String name = words[1];
+						String text = words[2];
+						String dateFrom = words[3];
+						String dateTo = words[4];
 						try {
 							Date dFrom = dateFormat.parse(dateFrom);
 							Date dTo = dateFormat.parse(dateTo);
@@ -240,9 +233,9 @@ public class Coordinator {
 						break;
 					}
 					case ECLONE: {
-						String name = in.next();
-						String text = in.next();
-						String nameTo = in.next();
+						String name = words[1];
+						String text = words[2];
+						String nameTo = words[3];
 						error = clone_event(name, text, nameTo);
 						break;
 					}
