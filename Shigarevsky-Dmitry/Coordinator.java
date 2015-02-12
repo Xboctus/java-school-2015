@@ -163,9 +163,13 @@ public class Coordinator {
 	}
 
 	public static void main(String[] args) {
+		Date now = new Date();
+
+		dateFormat.setLenient(false);
+
 		create_user("user", TimeZone.getTimeZone("GMT+3"), true);
-		add_event("user", "fastEvent", new Date(new Date().getTime() + 1000 * 15));
-		add_event("user", "slowEvent", new Date(new Date().getTime() + 1000*30));
+		add_event("user", "fastEvent", new Date(now.getTime() + 1000*15));
+		add_event("user", "slowEvent", new Date(now.getTime() + 1000*30));
 
 		boolean interactive = true;
 		while (interactive) {
@@ -266,23 +270,20 @@ public class Coordinator {
 		}
 
 		HashMap<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>> schedule = new HashMap<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>>();
-		Date now = new Date();
-//		GregorianCalendar gc = new GregorianCalendar();
+		now = new Date();
 		for (User user: users.values()) {
 			if (!user.getActive()) {
 				continue;
 			}
-//			gc.setTimeZone(user.getTimeZone());
 			for (Event event: user.getEvents().values()) {
 				if (event.getDate().compareTo(now) < 0) {
 					continue;
 				}
-//				gc.setTime(event.getDate());
-//				Date date = gc.getTime();
-				TreeMap<String /*name*/, ArrayList<String /*text*/>> date_sch = schedule.get(event.getDate());
+				Date date = new Date(event.getDate().getTime() - user.getTimeZone().getRawOffset());
+				TreeMap<String /*name*/, ArrayList<String /*text*/>> date_sch = schedule.get(date);
 				if (date_sch == null) {
 					schedule.put(event.getDate(), new TreeMap<String /*name*/, ArrayList<String /*text*/>>());
-					date_sch = schedule.get(event.getDate());
+					date_sch = schedule.get(date);
 				}
 				ArrayList<String /*text*/> user_sch = date_sch.get(user.getName());
 				if (user_sch == null) {
