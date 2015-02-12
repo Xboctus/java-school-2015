@@ -1,4 +1,4 @@
-import java.util.Date;
+import java.util.*;
 
 public class Event {
 	private Date date;
