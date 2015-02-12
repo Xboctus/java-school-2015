@@ -52,7 +52,12 @@ public class User {
     }
     public void AddEvent(Date date, String text)
     {
+        int l = events.size();
         events.add(new Event(date, text, this));
+        if (events.size() == l)
+            System.out.println("Нельзя создать два события с одним текстом");
+        else
+            System.out.println("Команда успешно выполнена");
     }
     public void ShowInfo()
     {
