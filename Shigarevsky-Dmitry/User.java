@@ -4,13 +4,12 @@ public class User {
 	private String name;
 	private TimeZone timeZone;
 	private boolean active;
-	private HashMap<String, Event> events;
+	private HashMap<String, Event> events = new HashMap<String, Event>();
 
 	public User(String name, TimeZone timeZone, boolean active) {
 		this.name = name;
 		this.timeZone = timeZone;
 		this.active = active;
-		this.events = new HashMap<String, Event>();
 	}
 
 	public String getName() {

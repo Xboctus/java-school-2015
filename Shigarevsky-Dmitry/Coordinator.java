@@ -8,26 +8,35 @@ public class Coordinator {
 	private static Scanner in = new Scanner(System.in);
 	private static PrintWriter out = new PrintWriter(System.out, true);
 	private static PrintWriter err = new PrintWriter(System.err, true);
-//	private static SimpleDateFormat dateFormat = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
-	private static SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
+//	private static SimpleDateFormat gmtDateFormat = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+	private static SimpleDateFormat gmtDateFormat = new SimpleDateFormat("HH:mm:ss");
+	private static SimpleDateFormat localDateFormat = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss z");
 
 	private static class ScheduleTask extends TimerTask {
 		private Date date;
 		private TreeMap<String /*name*/, ArrayList<String /*text*/>> user_sch;
 
 		static Timer timer;
-		static int n_tasks;
+		static int n_tasks = 0;
 
 		ScheduleTask(Date date, TreeMap<String /*name*/, ArrayList<String /*text*/>> user_sch) {
 			this.date = date;
 			this.user_sch = user_sch;
+			++n_tasks;
 		}
 
 		@Override
 		public void run() {
+			SimpleDateFormat userDateFormat = (SimpleDateFormat)localDateFormat.clone();
 			for (Map.Entry<String /*name*/, ArrayList<String /*text*/>> e: user_sch.entrySet()) {
+				userDateFormat.setTimeZone(users.get(e.getKey()).getTimeZone());
 				for (String text: e.getValue()) {
-					out.format("%s, %s, %s\n", date.toString(), e.getKey(), text);
+					out.format(
+						"%s (user %s), %s, %s\n",
+						localDateFormat.format(date),
+						userDateFormat.format(date),
+						e.getKey(), text
+					);
 				}
 			}
 			--n_tasks;
@@ -72,7 +81,7 @@ public class Coordinator {
 		}
 	}
 
-	private static Error create_user(String name, TimeZone timeZone, boolean active) {
+	private static Error createUser(String name, TimeZone timeZone, boolean active) {
 		if (users.get(name) != null) {
 			return Error.USER_ALREADY_EXISTS;
 		}
@@ -80,7 +89,7 @@ public class Coordinator {
 		return Error.NO_ERROR;
 	}
 
-	private static Error modify_user(String name, TimeZone timeZone, boolean active) {
+	private static Error modifyUser(String name, TimeZone timeZone, boolean active) {
 		User user = users.get(name);
 		if (user == null) {
 			return Error.NO_SUCH_USER;
@@ -90,7 +99,7 @@ public class Coordinator {
 		return Error.NO_ERROR;
 	}
 
-	private static Error show_user_info(String name) {
+	private static Error showUserInfo(String name) {
 		User user = users.get(name);
 		if (user == null) {
 			return Error.NO_SUCH_USER;
@@ -98,19 +107,34 @@ public class Coordinator {
 		HashMap<String, Event> events = user.getEvents();
 		out.format(
 			"%s, %s, %s, %d event%s\n",
-			name,
-			user.getTimeZone().getDisplayName(),
+			name, user.getTimeZone().getDisplayName(),
 			(user.getActive() ? "active" : "passive"),
-			events.size(),
-			(events.size() == 1 ? "" : "s")
+			events.size(), (events.size() == 1 ? "" : "s")
 		);
+		SimpleDateFormat userDateFormat = (SimpleDateFormat)localDateFormat.clone();
+		userDateFormat.setTimeZone(user.getTimeZone());
 		for (Event e: events.values()) {
-			out.format("%s, %s\n", e.getDate(), e.getText());
+			out.format(
+				"%s (%s), %s\n",
+				localDateFormat.format(e.getDate()),
+				userDateFormat.format(e.getDate()),
+				e.getText()
+			);
 		}
 		return Error.NO_ERROR;
 	}
 
-	private static Error add_event(String name, String text, Date date) {
+	// date is local (relative to GMT)
+	private static Error addEvent(String name, String text, Date date) {
+		User user = users.get(name);
+		if (user == null) {
+			return Error.NO_SUCH_USER;
+		}
+		user.addEvent(new Date(date.getTime() - user.getTimeZone().getRawOffset()), text);
+		return Error.NO_ERROR;
+	}
+
+	private static Error addGlobalEvent(String name, String text, Date date) {
 		User user = users.get(name);
 		if (user == null) {
 			return Error.NO_SUCH_USER;
@@ -119,7 +143,7 @@ public class Coordinator {
 		return Error.NO_ERROR;
 	}
 
-	private static Error remove_event(String name, String text) {
+	private static Error removeEvent(String name, String text) {
 		User user = users.get(name);
 		if (user == null) {
 			return Error.NO_SUCH_USER;
@@ -128,7 +152,8 @@ public class Coordinator {
 		return Error.NO_ERROR;
 	}
 
-	private static Error add_random_time_event(String name, String text, Date dateFrom, Date dateTo) {
+	// dateFrom and dateTo are local (relative to GMT)
+	private static Error addRandomTimeEvent(String name, String text, Date dateFrom, Date dateTo) {
 		User user = users.get(name);
 		if (user == null) {
 			return Error.NO_SUCH_USER;
@@ -138,11 +163,11 @@ public class Coordinator {
 		}
 		long diff = dateTo.getTime() - dateFrom.getTime();
 		Date date = new Date(dateFrom.getTime() + (long)((diff + 1)*Math.random()));
-		user.addEvent(date, text);
+		user.addEvent(new Date(date.getTime() - user.getTimeZone().getRawOffset()), text);
 		return Error.NO_ERROR;
 	}
 
-	private static Error clone_event(String name, String text, String nameTo) {
+	private static Error cloneEvent(String name, String text, String nameTo) {
 		User user = users.get(name);
 		if (user == null) {
 			return Error.NO_SUCH_USER;
@@ -163,13 +188,15 @@ public class Coordinator {
 	}
 
 	public static void main(String[] args) {
+		gmtDateFormat.setLenient(false);
+		gmtDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
+		localDateFormat.setTimeZone(TimeZone.getDefault());
+
 		Date now = new Date();
 
-		dateFormat.setLenient(false);
-
-		create_user("user", TimeZone.getTimeZone("GMT+3"), true);
-		add_event("user", "fastEvent", new Date(now.getTime() + 1000*15));
-		add_event("user", "slowEvent", new Date(now.getTime() + 1000*30));
+		createUser("user", TimeZone.getTimeZone("GMT+5"), true);
+		addGlobalEvent("user", "fastEvent", new Date(now.getTime() + 1000*10));
+		addGlobalEvent("user", "slowEvent", new Date(now.getTime() + 1000*20));
 
 		boolean interactive = true;
 		while (interactive) {
@@ -196,19 +223,19 @@ public class Coordinator {
 						String name = words[1];
 						String timeZone = words[2];
 						boolean active = Boolean.parseBoolean(words[3]);
-						error = create_user(name, TimeZone.getTimeZone("GMT" + timeZone), active);
+						error = createUser(name, TimeZone.getTimeZone("GMT" + timeZone), active);
 						break;
 					}
 					case UMOD: {
 						String name = words[1];
 						String timeZone = words[2];
 						boolean active = Boolean.parseBoolean(words[3]);
-						error = modify_user(name, TimeZone.getTimeZone("GMT" + timeZone), active);
+						error = modifyUser(name, TimeZone.getTimeZone("GMT" + timeZone), active);
 						break;
 					}
 					case UINFO: {
 						String name = words[1];
-						error = show_user_info(name);
+						error = showUserInfo(name);
 						break;
 					}
 					case EADD: {
@@ -216,7 +243,7 @@ public class Coordinator {
 						String text = words[2];
 						String date = words[3];
 						try {
-							error = add_event(name, text, dateFormat.parse(date));
+							error = addEvent(name, text, gmtDateFormat.parse(date));
 						} catch (ParseException e) {
 							error = Error.INVALID_DATE_FORMAT;
 						}
@@ -225,7 +252,7 @@ public class Coordinator {
 					case EREM: {
 						String name = words[1];
 						String text = words[2];
-						error = remove_event(name, text);
+						error = removeEvent(name, text);
 						break;
 					}
 					case ERAND: {
@@ -234,9 +261,9 @@ public class Coordinator {
 						String dateFrom = words[3];
 						String dateTo = words[4];
 						try {
-							Date dFrom = dateFormat.parse(dateFrom);
-							Date dTo = dateFormat.parse(dateTo);
-							error = add_random_time_event(name, text, dFrom, dTo);
+							Date dFrom = gmtDateFormat.parse(dateFrom);
+							Date dTo = gmtDateFormat.parse(dateTo);
+							error = addRandomTimeEvent(name, text, dFrom, dTo);
 						} catch (ParseException e) {
 							error = Error.INVALID_DATE_FORMAT;
 						}
@@ -246,7 +273,7 @@ public class Coordinator {
 						String name = words[1];
 						String text = words[2];
 						String nameTo = words[3];
-						error = clone_event(name, text, nameTo);
+						error = cloneEvent(name, text, nameTo);
 						break;
 					}
 					case START: {
@@ -279,11 +306,10 @@ public class Coordinator {
 				if (event.getDate().compareTo(now) < 0) {
 					continue;
 				}
-				Date date = new Date(event.getDate().getTime() - user.getTimeZone().getRawOffset());
-				TreeMap<String /*name*/, ArrayList<String /*text*/>> date_sch = schedule.get(date);
+				TreeMap<String /*name*/, ArrayList<String /*text*/>> date_sch = schedule.get(event.getDate());
 				if (date_sch == null) {
 					schedule.put(event.getDate(), new TreeMap<String /*name*/, ArrayList<String /*text*/>>());
-					date_sch = schedule.get(date);
+					date_sch = schedule.get(event.getDate());
 				}
 				ArrayList<String /*text*/> user_sch = date_sch.get(user.getName());
 				if (user_sch == null) {
@@ -300,11 +326,11 @@ public class Coordinator {
 			}
 		}
 
-		// FIXME: consider user timezones
-		ScheduleTask.timer = new Timer();
-		ScheduleTask.n_tasks = schedule.size();
-		for (Map.Entry<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>> e: schedule.entrySet()) {
-			ScheduleTask.timer.schedule(new ScheduleTask(e.getKey(), e.getValue()), e.getKey());
+		if (schedule.size() > 0) {
+			ScheduleTask.timer = new Timer();
+			for (Map.Entry<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>> e: schedule.entrySet()) {
+				ScheduleTask.timer.schedule(new ScheduleTask(e.getKey(), e.getValue()), e.getKey());
+			}
 		}
 	}
 }
