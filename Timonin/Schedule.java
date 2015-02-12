@@ -18,7 +18,7 @@ public class Schedule {
                 String command = s.substring(0, ind);
                 System.out.println(s);
                 System.out.println(command);
-                String name, timezone, status, text, datetime, nameTo;
+                String name, timezone, status, text, datetime, nameTo, dateFrom, dateTo;
                 boolean stat;
                 switch (command) {
                     case "Create":
@@ -72,10 +72,12 @@ public class Schedule {
                         datetime = s.substring(0, ind);
 
                         try {
-                            SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
-                            Date date = formatter.parse(datetime);
                             for (int i = 0; i < users.size(); i++)
-                                if (name.equals(users.get(i).getName())) {
+                                if (name.equals(users.get(i).getName()))
+                                {
+                                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+                                    formatter.setTimeZone(users.get(i).getTimezone());
+                                    Date date = formatter.parse(datetime);
                                     users.get(i).AddEvent(text, date);
                                     break;
                                 }
@@ -137,6 +139,36 @@ public class Schedule {
                         Event temp = users.get(fromUser).getEvent(text);
                         users.get(toUser).AddEvent(temp.getText(), temp.getDate());
                         break;
+
+                    case "AddRandomTimeEvent":
+                        s = s.substring(ind + 1);
+                        ind = s.indexOf(',');
+                        name = s.substring(0, ind);
+                        s = s.substring(ind + 2);
+                        ind = s.indexOf(',');
+                        text = s.substring(0, ind);
+                        s = s.substring(ind + 2);
+                        ind = s.indexOf(',');
+                        dateFrom = s.substring(0, ind);
+                        s = s.substring(ind + 2);
+                        dateTo = s.substring(0, s.length() - 1);
+                        try
+                        {
+                            for (int i = 0; i < users.size(); i++)
+                                if (name.equals(users.get(i).getName()))
+                                {
+                                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+                                    formatter.setTimeZone(users.get(i).getTimezone());
+                                    Date date1 = formatter.parse(dateFrom);
+                                    Date date2 = formatter.parse(dateTo);
+                                    Date date3 = new Date (((long) ((date2.getTime() - date1.getTime())*Math.random())) + date1.getTime());
+                                    users.get(i).AddEvent(text, date3);
+                                    break;
+                                }
+                        }
+                        catch (ParseException e) {
+                            System.out.println(e.getMessage());
+                        }
                 }
             }
             else
@@ -145,5 +177,6 @@ public class Schedule {
             }
             s = in.nextLine();
         }
+        Event.show = true;
     }
 }

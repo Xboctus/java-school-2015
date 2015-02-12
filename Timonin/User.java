@@ -25,6 +25,16 @@ public class User {
         return name;
     }
 
+    public boolean getStatus()
+    {
+        return status;
+    }
+
+    public TimeZone getTimezone()
+    {
+        return timezone;
+    }
+
     public void setTimeAndStat(TimeZone t, boolean s)
     {
         timezone = t;
@@ -32,7 +42,7 @@ public class User {
     }
     public void AddEvent(String t, Date d)
     {
-        event.add(new Event(t, d));
+        event.add(new Event(t, d, this));
     }
 
     public void ShowUser()
@@ -50,6 +60,7 @@ public class User {
         for (int i = 0; i < event.size(); i++)
             if (text.equals(event.get(i).getText()))
             {
+                event.get(i).deleteTimer();
                 event.remove(i);
                 break;
             }
