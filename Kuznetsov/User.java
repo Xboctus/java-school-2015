@@ -3,6 +3,7 @@
  */
 import com.sun.javafx.collections.transformation.SortedList;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class User {
@@ -21,6 +22,29 @@ public class User {
     {
         return this.name;
     }
+    public Boolean isActive()
+    {
+        return active;
+    }
+    public TreeSet<Event> getEvents()
+    {
+        return events;
+    }
+    public TimeZone getTimezone()
+    {
+        return zone;
+    }
+    public Event getEvent(String text)
+    {
+        for (Event e: events)
+        {
+            if (e.getText().equals(text))
+            {
+                return e;
+            }
+        }
+        return null;
+    }
     public void Modify(TimeZone zone, boolean active)
     {
         this.zone = zone;
@@ -28,7 +52,12 @@ public class User {
     }
     public void AddEvent(Date date, String text)
     {
-        events.add(new Event(date, text, name));
+        int l = events.size();
+        events.add(new Event(date, text, this));
+        if (events.size() == l)
+            System.out.println("Нельзя создать два события с одним текстом");
+        else
+            System.out.println("Команда успешно выполнена");
     }
     public void ShowInfo()
     {
@@ -37,6 +66,12 @@ public class User {
             System.out.println("active");
         else
             System.out.println("not active");
+        for (Event e: events)
+        {
+            SimpleDateFormat df = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+            System.out.print(df.format(e.getDate())+" ");
+            System.out.println(e.getText());
+        }
     }
     public void RemoveEvent(String text)
     {
@@ -55,11 +90,12 @@ class Compare implements Comparator<Event>
 {
     @Override
     public int compare(Event o, Event o2) {
-
+        int c = o.getText().compareTo(o2.getText());
+        if (c == 0) return 0;
         if (o.getDate().after(o2.getDate()))
             return 1;
         if (o.getDate().before(o2.getDate()))
             return -1;
-        return 0;
+        return c;
     }
 }

@@ -2,28 +2,29 @@
  * Created by Pavel on 09.02.2015.
  */
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 
 public class Event extends TimerTask {
     private String text;
     private Date time;
     private Timer timer;
-    private String name;
-    public Event(Date time, String text,String name)
+    private User u;
+    public static boolean ready = false;
+    public Event(Date time, String text,User u)
     {
-        this.time = time;
+        int m = 4*3600000-u.getTimezone().getRawOffset();
+        Date d = new Date(time.getTime()+m);
+        this.time = d;
         this.text = text;
-        this.name = name;
+        this.u = u;
         timer = new Timer();
-        timer.schedule(this, time);
+        timer.schedule(this, d);
 
     }
     public void stop()
     {
         timer.cancel();
+        u.getEvents().pollFirst();
     }
     public Date getDate()
     {
@@ -35,10 +36,14 @@ public class Event extends TimerTask {
     }
     public void run()
     {
-        SimpleDateFormat df = new SimpleDateFormat("dd.MM.YYYY-HH:mm:ss");
-        System.out.println(df.format(new Date()));
-        System.out.println(name);
-        System.out.println(text);
+        if (u.isActive() && ready) {
+            SimpleDateFormat df = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+            System.out.println(df.format(new Date().getTime()-3600000));
+            System.out.println(u.getName());
+            System.out.println(text);
+        }
+        u.getEvents().pollFirst();
+        Thread.currentThread().stop();
     }
 }
 
