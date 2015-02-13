@@ -1,6 +1,7 @@
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -8,6 +9,8 @@ import javax.swing.*;
 import javax.swing.GroupLayout.Alignment;
 import javax.swing.GroupLayout.ParallelGroup;
 import javax.swing.GroupLayout.SequentialGroup;
+import javax.swing.table.AbstractTableModel;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.text.DefaultCaret;
 
 class LogHolder {
@@ -26,7 +29,7 @@ class LogHolder {
 
 class MainWindow extends JFrame {
 	private JButton btUseradd, btUseredit, btEventadd, btEventrem,
-						btEventrnd, btUserinfo, btEventcopy;
+						btEventrnd, btUserinfo, btEventcopy, btUE;
 	private JTextArea logArea = new JTextArea();
 	private DefaultListModel<String> lModel = new DefaultListModel<String>();
 	private JList<String> lUsers = new JList<String>(lModel);
@@ -41,6 +44,7 @@ class MainWindow extends JFrame {
 		btEventrnd = new JButton("Add random event");
 		btUserinfo = new JButton("Show user info");
 		btEventcopy = new JButton("Clone event");
+		btUE = new JButton("Edit events");
 		JPanel logPanel = new JPanel(),
 				actionsPanel = new JPanel(new FlowLayout());
 		logPanel.setLayout(new BoxLayout(logPanel,BoxLayout.PAGE_AXIS));
@@ -64,6 +68,7 @@ class MainWindow extends JFrame {
 		actionsPanel.add(btEventrnd);
 		actionsPanel.add(btUserinfo);
 		actionsPanel.add(btEventcopy);
+		actionsPanel.add(btUE);
 		getContentPane().setLayout(new FlowLayout());
 		getContentPane().add(logPanel);
 		getContentPane().add(actionsPanel);
@@ -74,6 +79,12 @@ class MainWindow extends JFrame {
 		addButtonListener(this,btEventrnd,CmdType.ADDRANDOMEVENT);
 		addButtonListener(this,btUserinfo,CmdType.USERINFO);
 		addButtonListener(this,btEventcopy,CmdType.CLONEEVENT);
+		btUE.addMouseListener(new MouseAdapter() {
+			public void mouseClicked(MouseEvent e) {
+				Rectangle pos = getBounds();
+				(new UserDataWindow(lUsers.getSelectedValue(),pos.x,pos.y)).setVisible(true);
+			}
+		});
 	}
 	
 	private void addButtonListener(final MainWindow mainWindow, JButton bt, final CmdType cmd) {
@@ -282,6 +293,119 @@ class CommandWindow extends JDialog {
 		pack();
 		setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 		}
+	}
+}
+
+class EventsTableModel extends AbstractTableModel {
+	private ArrayList<SchEvent> uevents;
+	private SchUser user;
+	private String[] columnNames;
+	private static SimpleDateFormat dateFormat = (SimpleDateFormat)SScheduler.dateFormat.clone();
+	
+	EventsTableModel(SchUser u) {
+		user = u;
+		uevents = new ArrayList<SchEvent>();
+		columnNames = new String[]{ "Date", "Text" };
+		for (SchEvent e : SScheduler.events)
+			if (e.getOwner()==u)
+				uevents.add(e);
+		dateFormat.setTimeZone(user.getTimeZone());
+	}
+
+	public int getRowCount() {
+		return uevents.size();
+	}
+
+	public int getColumnCount() {
+		return columnNames.length;
+	}
+
+	public Object getValueAt(int rowIndex, int columnIndex) {
+		SchEvent e = uevents.get(rowIndex);
+		return (columnIndex==0) ? dateFormat.format(e.getDate()) : e.getInfo();
+	}
+	
+	public String getColumnName(int column) {
+		return columnNames[column];
+	}
+	
+	public boolean isCellEditable(int rowIndex, int columnIndex) {
+        return true;
+    }
+	
+	public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
+		SchEvent e = uevents.get(rowIndex);
+		if (columnIndex==0) {
+			String date = (String)aValue;
+			try {
+				e.setDate(dateFormat.parse(date));
+			} catch (ParseException e1) {
+				fireTableDataChanged();
+			}
+		}
+		else {
+			String text = (String)aValue;
+			SchEvent existing = SScheduler.findEvent(text, user);
+			if (existing==null) {
+				e.setInfo(text);
+			}
+			else fireTableDataChanged();
+		}
+    }
+	
+	public void addRow() {
+		try {
+			if (SScheduler.findEvent("", user)==null) {
+				SchEvent e = new SchEvent(new Date(), "", user, dateFormat);
+				SScheduler.events.add(e);
+				uevents.add(e);
+			}
+			fireTableDataChanged();
+		} catch (ParseException e) {
+			
+		}
+	}
+	
+	public void delRow(int row) {
+		SchEvent e = uevents.get(row);
+		e.cancel();
+		uevents.remove(e);
+		SScheduler.events.remove(e);
+		fireTableDataChanged();
+	}
+}
+
+class UserDataWindow extends JDialog {
+	private JTable eventsTable;
+	
+	UserDataWindow(String username, int x, int y) {
+		SchUser u = SScheduler.findUser(username);
+		if (u!=null) {
+			setBounds(x, y, 500, 300);
+			setTitle(username+" events");
+			final EventsTableModel tableModel = new EventsTableModel(u);
+			eventsTable = new JTable(tableModel);
+			JScrollPane sp = new JScrollPane(eventsTable);
+			sp.setPreferredSize(new Dimension(getBounds().width,getBounds().height-100));
+			JButton btAddrow = new JButton("Add event");
+			JButton btDelrow = new JButton("Remove event");
+			JPanel panel = new JPanel();
+			panel.add(sp);
+			panel.add(btAddrow);
+			panel.add(btDelrow);
+			getContentPane().add(panel);
+			btAddrow.addMouseListener(new MouseAdapter() {
+				public void mouseClicked(MouseEvent e) {
+					tableModel.addRow();
+				}
+			});
+			btDelrow.addMouseListener(new MouseAdapter() {
+				public void mouseClicked(MouseEvent e) {
+					tableModel.delRow(eventsTable.getSelectedRow());
+				}
+			});
+		}
+		setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 	}
 }
 

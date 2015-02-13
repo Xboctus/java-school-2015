@@ -92,6 +92,14 @@ class SchEvent extends TimerTask implements Comparable<SchEvent> {
 		owner = newOwner;
 	}
 	
+	public void setDate(Date date) {
+		timeInstant = date;
+	}
+	
+	public void setInfo(String text) {
+		info = text;
+	}
+	
 	public int compareTo(SchEvent e2) {
 		int usernameDiff = getOwner().getName().compareTo(e2.getOwner().getName());
 		if (usernameDiff!=0) return -usernameDiff;
@@ -110,7 +118,7 @@ class SchEvent extends TimerTask implements Comparable<SchEvent> {
 	
 	public boolean equals(Object o2) {
 		if (o2 instanceof SchEvent)
-			return getDate().equals(((SchEvent) o2).getDate());
+			return getDate().equals(((SchEvent) o2).getDate()) && getInfo().equals(((SchEvent) o2).getInfo());
 		return false;
 	}
 
@@ -165,7 +173,7 @@ public class SScheduler {
 		}
 	}
 	
-	private static SchUser findUser(String name) {
+	public static SchUser findUser(String name) {
 		SchUser existingUser = null;
 		for (SchUser u : users)
 			if (u.getName().equals(name)) {
@@ -175,7 +183,7 @@ public class SScheduler {
 		return existingUser;
 	}
 	
-	private static SchEvent findEvent(String text, SchUser user) {
+	public static SchEvent findEvent(String text, SchUser user) {
 		SchEvent existingEvent = null;
 		for(SchEvent e : events)
 			if (e.getInfo().equals(text) && e.getOwner()==user) {
@@ -344,7 +352,7 @@ public class SScheduler {
 	}
 	
 	private static ArrayList<SchUser> users = new ArrayList<SchUser>();
-	private static ArrayList<SchEvent> events = new ArrayList<SchEvent>();
+	public static ArrayList<SchEvent> events = new ArrayList<SchEvent>();
 	public static SimpleDateFormat dateFormat =
 			new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
 	

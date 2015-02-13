@@ -99,7 +99,7 @@ class SchEvent implements Comparable<SchEvent> {
 	
 	public boolean equals(Object o2) {
 		if (o2 instanceof SchEvent)
-			return getDate().equals(((SchEvent) o2).getDate());
+			return getDate().equals(((SchEvent) o2).getDate()) && getInfo().equals(((SchEvent) o2).getInfo());
 		return false;
 	}
 }
