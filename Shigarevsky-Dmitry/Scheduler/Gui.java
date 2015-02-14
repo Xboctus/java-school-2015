@@ -1,7 +1,9 @@
 import javax.swing.*;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.TimeZone;
 
 public class Gui {
 	static private class UserCreateDialog extends JDialog {
@@ -57,23 +59,36 @@ public class Gui {
 		@Override
 		public void actionPerformed(ActionEvent e) {
 			Coordinator.Command c = Coordinator.Command.valueOf(e.getActionCommand());
+			Coordinator.Error error = null;
 			switch (c) {
 			case UADD: {
-				JTextField firstName = new JTextField();
-				JTextField lastName = new JTextField();
-				JPasswordField password = new JPasswordField();
+				JTextField name = new JTextField();
+				JTextField timezone = new JTextField();
+				JCheckBox active = new JCheckBox();
 				final JComponent[] inputs = new JComponent[] {
-					new JLabel("First"), firstName,
-					new JLabel("Last"), lastName,
-					new JLabel("Password"), password
+					new JLabel("Name"), name,
+					new JLabel("Timezone"), timezone,
+					new JLabel("Is active"), active
 				};
 				messagesArea.append(e.getActionCommand());
-				JOptionPane.showMessageDialog(null, inputs, "My custom dialog", JOptionPane.PLAIN_MESSAGE);
-				JDialog d = new UserCreateDialog(this);
+				JOptionPane.showMessageDialog(null, inputs, "Create user", JOptionPane.PLAIN_MESSAGE);
+				error = Coordinator.createUser(
+					name.getText(), 
+					TimeZone.getTimeZone("GMT" + timezone), 
+					active.isSelected()
+				);
 				break;
 			}
 			case QUIT:
 				this.dispose();
+				return;
+			}
+			if (error == Coordinator.Error.NO_ERROR) {
+				if (c.r != null) {
+					messagesArea.append(c.r + "\n");
+				}
+			} else {
+				messagesArea.append(error.msg + "\n");
 			}
 		}
 	}

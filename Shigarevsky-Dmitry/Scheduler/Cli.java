@@ -18,12 +18,6 @@ public class Cli {
 		gmtDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
 		localDateFormat.setTimeZone(TimeZone.getDefault());
 
-		Date now = new Date();
-
-		Coordinator.createUser("user", TimeZone.getTimeZone("GMT+5"), true);
-		Coordinator.addGlobalEvent("user", "fastEvent", new Date(now.getTime() + 1000*10));
-		Coordinator.addGlobalEvent("user", "slowEvent", new Date(now.getTime() + 1000*20));
-
 		boolean interactive = true;
 		while (interactive) {
 			out.print(">: ");
@@ -123,7 +117,7 @@ public class Cli {
 		}
 
 		HashMap<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>> schedule = new HashMap<Date, TreeMap<String /*name*/, ArrayList<String /*text*/>>>();
-		now = new Date();
+		Date now = new Date();
 		for (User user: Coordinator.users.values()) {
 			if (!user.getActive()) {
 				continue;
