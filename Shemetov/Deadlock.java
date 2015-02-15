@@ -17,6 +17,7 @@ public class Deadlock {
 
 
 class FirstThread extends Thread {
+	//
 	private final ReentrantLock lock = new ReentrantLock();
 	public void run() {
 		synchronized(Deadlock.first){
