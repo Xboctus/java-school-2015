@@ -25,8 +25,6 @@ public class Cli {
 
 			String[] words = in.nextLine().trim().split("\\s+");
 
-			Coordinator.Error error = null;
-
 			Coordinator.Command c;
 
 			try {
@@ -36,26 +34,26 @@ public class Cli {
 			}
 
 			if (c == null) {
-				error = Coordinator.Error.UNKNOWN_COMMAND;
+				Coordinator.lastError = Coordinator.Error.UNKNOWN_COMMAND;
 			} else {
 				switch (c) {
 					case UADD: {
 						String name = words[1];
 						String timeZone = words[2];
 						boolean active = Boolean.parseBoolean(words[3]);
-						error = Coordinator.createUser(name, TimeZone.getTimeZone("GMT" + timeZone), active);
+						Coordinator.createUser(name, TimeZone.getTimeZone("GMT" + timeZone), active);
 						break;
 					}
 					case UMOD: {
 						String name = words[1];
 						String timeZone = words[2];
 						boolean active = Boolean.parseBoolean(words[3]);
-						error = Coordinator.modifyUser(name, TimeZone.getTimeZone("GMT" + timeZone), active);
+						Coordinator.modifyUser(name, TimeZone.getTimeZone("GMT" + timeZone), active);
 						break;
 					}
 					case UINFO: {
 						String name = words[1];
-						error = Coordinator.showUserInfo(name, out);
+						Coordinator.showUserInfo(name, out);
 						break;
 					}
 					case EADD: {
@@ -63,16 +61,16 @@ public class Cli {
 						String text = words[2];
 						String date = words[3];
 						try {
-							error = Coordinator.addEvent(name, text, gmtDateFormat.parse(date));
+							Coordinator.addEvent(name, text, gmtDateFormat.parse(date));
 						} catch (ParseException e) {
-							error = Coordinator.Error.INVALID_DATE_FORMAT;
+							Coordinator.lastError = Coordinator.Error.INVALID_DATE_FORMAT;
 						}
 						break;
 					}
 					case EREM: {
 						String name = words[1];
 						String text = words[2];
-						error = Coordinator.removeEvent(name, text);
+						Coordinator.removeEvent(name, text);
 						break;
 					}
 					case ERAND: {
@@ -83,9 +81,9 @@ public class Cli {
 						try {
 							Date dFrom = gmtDateFormat.parse(dateFrom);
 							Date dTo = gmtDateFormat.parse(dateTo);
-							error = Coordinator.addRandomTimeEvent(name, text, dFrom, dTo);
+							Coordinator.addRandomTimeEvent(name, text, dFrom, dTo);
 						} catch (ParseException e) {
-							error = Coordinator.Error.INVALID_DATE_FORMAT;
+							Coordinator.lastError = Coordinator.Error.INVALID_DATE_FORMAT;
 						}
 						break;
 					}
@@ -93,12 +91,12 @@ public class Cli {
 						String name = words[1];
 						String text = words[2];
 						String nameTo = words[3];
-						error = Coordinator.cloneEvent(name, text, nameTo);
+						Coordinator.cloneEvent(name, text, nameTo);
 						break;
 					}
 					case START: {
 						interactive = false;
-						error = Coordinator.Error.NO_ERROR;
+						Coordinator.lastError = Coordinator.Error.NO_ERROR;
 						break;
 					}
 					case QUIT: {
