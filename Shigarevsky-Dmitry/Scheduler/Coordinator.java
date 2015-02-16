@@ -79,28 +79,31 @@ public class Coordinator {
 		}
 	}
 
-	public static Error createUser(String name, TimeZone timeZone, boolean active) {
+	public static Error lastError;
+
+	public static void createUser(String name, TimeZone timeZone, boolean active) {
+		lastError = Error.NO_ERROR;
 		if (users.get(name) != null) {
-			return Error.USER_ALREADY_EXISTS;
+			lastError = Error.USER_ALREADY_EXISTS;
 		}
 		users.put(name, new User(name, timeZone, active));
-		return Error.NO_ERROR;
 	}
 
-	public static Error modifyUser(String name, TimeZone timeZone, boolean active) {
+	public static void modifyUser(String name, TimeZone timeZone, boolean active) {
+		lastError = Error.NO_ERROR;
 		User user = users.get(name);
 		if (user == null) {
-			return Error.NO_SUCH_USER;
+			lastError = Error.NO_SUCH_USER;
 		}
 		user.setActive(active);
 		user.setTimeZone(timeZone);
-		return Error.NO_ERROR;
 	}
 
-	public static Error showUserInfo(String name, PrintWriter out) {
+	public static void showUserInfo(String name, PrintWriter out) {
+		lastError = Error.NO_ERROR;
 		User user = users.get(name);
 		if (user == null) {
-			return Error.NO_SUCH_USER;
+			lastError = Error.NO_SUCH_USER;
 		}
 		HashMap<String, Event> events = user.getEvents();
 		out.format(
@@ -119,69 +122,68 @@ public class Coordinator {
 				e.getText()
 			);
 		}
-		return Error.NO_ERROR;
 	}
 
 	// date is local (relative to GMT)
-	public static Error addEvent(String name, String text, Date date) {
+	public static void addEvent(String name, String text, Date date) {
+		lastError = Error.NO_ERROR;
 		User user = users.get(name);
 		if (user == null) {
-			return Error.NO_SUCH_USER;
+			lastError = Error.NO_SUCH_USER;
 		}
 		user.addEvent(new Date(date.getTime() - user.getTimeZone().getRawOffset()), text);
-		return Error.NO_ERROR;
 	}
 
-	public static Error addGlobalEvent(String name, String text, Date date) {
+	public static void addGlobalEvent(String name, String text, Date date) {
+		lastError = Error.NO_ERROR;
 		User user = users.get(name);
 		if (user == null) {
-			return Error.NO_SUCH_USER;
+			lastError = Error.NO_SUCH_USER;
 		}
 		user.addEvent(date, text);
-		return Error.NO_ERROR;
 	}
 
-	public static Error removeEvent(String name, String text) {
+	public static void removeEvent(String name, String text) {
+		lastError = Error.NO_ERROR;
 		User user = users.get(name);
 		if (user == null) {
-			return Error.NO_SUCH_USER;
+			lastError = Error.NO_SUCH_USER;
 		}
 		user.getEvents().remove(text);
-		return Error.NO_ERROR;
 	}
 
 	// dateFrom and dateTo are local (relative to GMT)
-	public static Error addRandomTimeEvent(String name, String text, Date dateFrom, Date dateTo) {
+	public static void addRandomTimeEvent(String name, String text, Date dateFrom, Date dateTo) {
+		lastError = Error.NO_ERROR;
 		User user = users.get(name);
 		if (user == null) {
-			return Error.NO_SUCH_USER;
+			lastError = Error.NO_SUCH_USER;
 		}
 		if (user.getEvents().get(text) != null) {
-			return Error.EVENT_ALREADY_EXISTS;
+			lastError = Error.EVENT_ALREADY_EXISTS;
 		}
 		long diff = dateTo.getTime() - dateFrom.getTime();
 		Date date = new Date(dateFrom.getTime() + (long)((diff + 1)*Math.random()));
 		user.addEvent(new Date(date.getTime() - user.getTimeZone().getRawOffset()), text);
-		return Error.NO_ERROR;
 	}
 
-	public static Error cloneEvent(String name, String text, String nameTo) {
+	public static void cloneEvent(String name, String text, String nameTo) {
+		lastError = Error.NO_ERROR;
 		User user = users.get(name);
 		if (user == null) {
-			return Error.NO_SUCH_USER;
+			lastError = Error.NO_SUCH_USER;
 		}
 		User userTo = users.get(nameTo);
 		if (userTo == null) {
-			return Error.NO_SUCH_USER;
+			lastError = Error.NO_SUCH_USER;
 		}
 		Event event = user.getEvents().get(text);
 		if (event == null) {
-			return Error.NO_SUCH_EVENT;
+			lastError = Error.NO_SUCH_EVENT;
 		}
 		if (userTo.getEvents().get(text) != null) {
-			return Error.EVENT_ALREADY_EXISTS;
+			lastError = Error.EVENT_ALREADY_EXISTS;
 		}
 		userTo.addEvent(event.getDate(), event.getText());
-		return Error.NO_ERROR;
 	}
 }

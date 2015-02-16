@@ -6,11 +6,11 @@ import com.mysql.jdbc.jdbc2.optional.MysqlDataSource;
 public class Books {
 	private static final String bookDirName = "./books";
 	private static final Path bookPath = Paths.get(bookDirName);
-	
+
 	private static final String dbServerName = "localhost";
 	private static final String dbUserId = "root";
 	private static final String dbUserPassword = "qwerty";
-	
+
 	private static BookParser bookParser;
 	private static Connection connection;
 	private static WatchService watchService;
@@ -21,7 +21,7 @@ public class Books {
 		System.err.println("sax - SAX (Simple API for XML, event based)");
 		System.exit(-1);
 	}
-	
+
 	private static void initialize() {
 		String algo = System.getProperties().getProperty("algorithm");
 		if (algo == null) {
@@ -34,13 +34,13 @@ public class Books {
 			printUsageAndQuit();
 		}
 	}
-	
+
 	private static void establishConnection() {
 		MysqlDataSource ds = new MysqlDataSource();
 		ds.setServerName(dbServerName);
 		ds.setUser(dbUserId);
 		ds.setPassword(dbUserPassword);
-		
+
 		try {
 			connection = ds.getConnection();
 		} catch (SQLException e) {
@@ -48,7 +48,7 @@ public class Books {
 			System.exit(-1);
 		}
 	}
-	
+
 	private static void registerWatchService() {
 		try {
 			watchService = FileSystems.getDefault().newWatchService();
@@ -58,7 +58,7 @@ public class Books {
 			System.exit(-1);
 		}
 	}
-	
+
 	private static WatchKey takeWatchKey() {
 		try {
 			return watchService.take();
@@ -68,11 +68,11 @@ public class Books {
 			return null;
 		}
 	}
-	
+
 	private static void pushBook(Book book) {
 		try {
 			PreparedStatement statement = connection.prepareStatement(
-				"REPLACE INTO books.books (id, isbn, author, title, genre, description, publish_date, price) " + 
+				"REPLACE INTO books.books (id, isbn, author, title, genre, description, publish_date, price) " +
 				"VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 			);
 			statement.setString(1, book.id);
@@ -90,15 +90,15 @@ public class Books {
 			System.exit(-1);
 		}
 	}
-	
+
 	public static void main(String[] args) {
 		initialize();
 		establishConnection();
 		registerWatchService();
-		
+
 		while (true) {
 			WatchKey watchKey = takeWatchKey();
-			
+
 			for (WatchEvent<?> event_: watchKey.pollEvents()) {
 				@SuppressWarnings("unchecked")
 				WatchEvent<Path> event = (WatchEvent<Path>)event_;
@@ -107,7 +107,7 @@ public class Books {
 				Path name = event.context();
 				Path fullName = bookPath.resolve(name);
 				System.out.format("%s: %s\n", kind, fullName);
-				
+
 				if (name.toString().toLowerCase().endsWith(".xml")) {
 					if (kind == StandardWatchEventKinds.ENTRY_CREATE) {
 						ArrayList<Book> books = bookParser.parse(fullName.toString());
@@ -121,13 +121,13 @@ public class Books {
 					}
 				}
 			}
-			
+
 			if (!watchKey.reset()) {
 				System.err.println("Watch key reset failed.");
 				break;
 			}
 		}
-		
+
 		try {
 			connection.close();
 		} catch (SQLException e) {

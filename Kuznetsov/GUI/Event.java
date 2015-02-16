@@ -11,15 +11,17 @@ public class Event extends TimerTask {
     private Date time;
     private Timer timer;
     private User u;
+    private boolean neu;
     public static boolean ready = false;
     public static JTextArea area;
-    public Event(Date time, String text,User u)
+    public Event(Date time, String text, User u, boolean neu)
     {
         int m = TimeZone.getDefault().getRawOffset()-u.getTimezone().getRawOffset();
         Date d = new Date(time.getTime()+m);
         this.time = d;
         this.text = text;
         this.u = u;
+        this.neu = neu;
         timer = new Timer();
         timer.schedule(this, d);
     }
@@ -35,6 +37,14 @@ public class Event extends TimerTask {
     public String getText()
     {
         return text;
+    }
+    public boolean isNeu()
+    {
+        return neu;
+    }
+    public void setNonNew()
+    {
+        neu = false;
     }
     public void run()
     {

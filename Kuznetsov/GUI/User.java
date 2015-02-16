@@ -11,14 +11,16 @@ public class User {
     private String name;
     private TimeZone zone;
     private boolean active;
+    private boolean neu;
     private TreeSet<Event> events;
     public static JTextArea ta;
-    public User(String name, TimeZone zone, boolean active)
+    public User(String name, TimeZone zone, boolean active, boolean neu)
     {
         this.name = name;
         this.zone = zone;
         this.active = active;
         events = new TreeSet<Event>(new Compare());
+        this.neu = neu;
     }
     public String getName()
     {
@@ -27,6 +29,10 @@ public class User {
     public Boolean isActive()
     {
         return active;
+    }
+    public void setNonNew()
+    {
+        neu = false;
     }
     public TreeSet<Event> getEvents()
     {
@@ -52,14 +58,16 @@ public class User {
         this.zone = zone;
         this.active = active;
     }
-    public void AddEvent(Date date, String text) throws IllegalArgumentException
+    public void AddEvent(Date date, String text, boolean neu) throws IllegalArgumentException
     {
         int l = events.size();
-        events.add(new Event(date, text, this));
-        if (events.size() == l)
-            ta.append("Нельзя создать два события с одним текстом\n");
-        else
-            ta.append("Команда успешно выполнена\n");
+        events.add(new Event(date, text, this, neu));
+        if (neu) {
+            if (events.size() == l)
+                ta.append("Нельзя создать два события с одним текстом\n");
+            else
+                ta.append("Команда успешно выполнена\n");
+        }
     }
     public void ShowInfo()
     {
@@ -74,6 +82,10 @@ public class User {
             System.out.print(df.format(e.getDate())+" ");
             System.out.println(e.getText());
         }
+    }
+    public boolean isNew()
+    {
+        return neu;
     }
     public void RemoveEvent(String text)
     {

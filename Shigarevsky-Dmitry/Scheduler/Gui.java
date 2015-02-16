@@ -6,18 +6,18 @@ import java.awt.event.ActionListener;
 import java.util.TimeZone;
 
 public class Gui {
-	static private class UserCreateDialog extends JDialog {
+/*	static private class UserCreateDialog extends JDialog {
 		public UserCreateDialog(JFrame owner) {
 			super(owner);
 		}
 	}
-
+*/
 	static private class SchedulerFrame extends JFrame implements ActionListener {
 		private JButton[] actionButtons;
 		private JTextArea messagesArea;
 
 		private SchedulerFrame() {
-			super("Scheduler");
+			this.setTitle("Scheduler");
 			this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 			this.setMinimumSize(new Dimension(500, -1));
 
@@ -42,7 +42,7 @@ public class Gui {
 
 			messagesArea = new JTextArea();
 			messagesArea.setEditable(false);
-			messagesArea.setText("Sample text\nSample text");
+			messagesArea.setText("Sample text\nSample text\n");
 
 			gbc.gridx = 1;
 			gbc.gridy = 0;
@@ -54,6 +54,7 @@ public class Gui {
 			pane.add(sp, gbc);
 
 			this.pack();
+			this.setVisible(true);
 		}
 
 		@Override
@@ -71,10 +72,10 @@ public class Gui {
 					new JLabel("Is active"), active
 				};
 				messagesArea.append(e.getActionCommand());
-				JOptionPane.showMessageDialog(null, inputs, "Create user", JOptionPane.PLAIN_MESSAGE);
+				JOptionPane.showMessageDialog(this, inputs, "Create user", JOptionPane.PLAIN_MESSAGE);
 				error = Coordinator.createUser(
-					name.getText(), 
-					TimeZone.getTimeZone("GMT" + timezone), 
+					name.getText(),
+					TimeZone.getTimeZone("GMT" + timezone),
 					active.isSelected()
 				);
 				break;
@@ -97,8 +98,7 @@ public class Gui {
 		SwingUtilities.invokeLater(new Runnable(){
 			@Override
 			public void run() {
-				SchedulerFrame frame = new SchedulerFrame();
-				frame.setVisible(true);
+				new SchedulerFrame();
 			}
 		});
 	}

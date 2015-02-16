@@ -1,10 +1,14 @@
 import javafx.scene.shape.Circle;
+import sun.jdbc.odbc.JdbcOdbcDriver;
 
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.sql.*;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -15,6 +19,7 @@ import java.util.TimeZone;
 import javax.swing.text.DateFormatter;
 import javax.swing.text.DefaultFormatterFactory;
 import javax.swing.text.MaskFormatter;
+import javax.swing.tree.ExpandVetoException;
 
 /**
  * Created by Pavel on 12.02.2015.
@@ -28,6 +33,32 @@ public class BaseForm extends JFrame {
         setResizable(false);
         setLocationRelativeTo(null);
         users = new ArrayList<>();
+        try {
+            Class.forName("sun.jdbc.odbc.JdbcOdbcDriver");
+            Connection con = DriverManager.getConnection("jdbc:odbc:Schedule");
+            Statement stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM Users");
+            while (rs.next())
+            {
+                int id = rs.getInt("userID");
+                users.add(new User(rs.getString("name"),TimeZone.getTimeZone(rs.getString("timezone")),rs.getBoolean("active"),false));
+                String sql = "select * from Evnts where userID = ?";
+                Connection con2 = DriverManager.getConnection("jdbc:odbc:Schedule");
+                PreparedStatement psmnt = con2.prepareStatement(sql);
+                psmnt.setInt(1, id);
+                ResultSet rs1 = psmnt.executeQuery();
+                while (rs1.next())
+                {
+                    SimpleDateFormat df = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+                    User us = users.get(users.size()-1);
+                    us.AddEvent(df.parse(rs1.getString("dtime")), rs1.getString("msg"), false);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            System.out.println(e.getMessage());
+        }
     }
     public void initialize(final JFrame jf)
     {
@@ -82,7 +113,7 @@ public class BaseForm extends JFrame {
                                     }
                                 }
                                 if (!f) {
-                                    users.add(new User(t1.getText().trim(), TimeZone.getTimeZone(t2.getText().trim()), true));
+                                    users.add(new User(t1.getText().trim(), TimeZone.getTimeZone(t2.getText().trim()), true, true));
                                     tp.append("Пользователь успешно создан\n");
                                     jd.dispose();
                                 }
@@ -143,7 +174,7 @@ public class BaseForm extends JFrame {
                                                 SimpleDateFormat df = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
                                                 try {
                                                     Date d = df.parse(t2.getText().trim());
-                                                    u.AddEvent(d, msg);
+                                                    u.AddEvent(d, msg, true);
                                                     f = !f;
                                                 } catch (ParseException | IllegalArgumentException ex)
                                                 {
@@ -195,9 +226,10 @@ public class BaseForm extends JFrame {
                     jb.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
+                            boolean f = false;
                             for (User u: users)
                             {
-                                boolean f = false;
+
                                 if (u.getName().trim().equals(t1.getText()))
                                 {
                                     f = !f;
@@ -217,13 +249,12 @@ public class BaseForm extends JFrame {
                                         ++i;
                                     }
                                     jd.add(new JTable(cs,cn));
-                                    //jd.getContentPane().add(jp,BorderLayout.NORTH);
                                     jd.repaint();
                                     jd.setVisible(true);
                                 }
-                                if (!f)
-                                    JOptionPane.showMessageDialog(jd,"Такого пользователя не существует");
                             }
+                            if (!f)
+                                JOptionPane.showMessageDialog(jd,"Такого пользователя не существует");
                         }
                     });
 
@@ -232,9 +263,54 @@ public class BaseForm extends JFrame {
                     jd.setVisible(true);
                 }
             });
+            JButton b4 = new JButton("Save");
+            b4.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    try {
+                        Class.forName("sun.jdbc.odbc.JdbcOdbcDriver");
+                        Connection con = DriverManager.getConnection("jdbc:odbc:Schedule");
+                        for (User u: users) {
+                            if (u.isNew()) {
+                                String q = "insert Users(name, timezone, active) values (N'"+u.getName()+"', N'"+u.getTimezone().getID().substring(0,6)+"', ";
+                                if (u.isActive())
+                                    q += "1)";
+                                else
+                                    q += "0)";
+                                Statement stmt = con.createStatement();
+                                stmt.executeUpdate(q);
+                                con.commit();
+                                u.setNonNew();
+                            }
+                            for (Event evnt: u.getEvents())
+                            {
+                                if (evnt.isNeu())
+                                {
+                                    String q1 = "select userID from Users where name like '" + u.getName()+"'";
+                                    Statement stmt1 = con.createStatement();
+                                    ResultSet rs = stmt1.executeQuery(q1);
+                                    rs.next();
+                                    int id = rs.getInt("userID");
+                                    SimpleDateFormat df = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+                                    String q = "insert Evnts(dtime, msg, userID) values (N'"+df.format(evnt.getDate())+"',N'"+evnt.getText()+"',"+id+")";
+                                    Statement stmt2 = con.createStatement();
+                                    stmt2.executeUpdate(q);
+                                    evnt.setNonNew();
+                                    con.commit();
+                                }
+                            }
+                        }
+                        tp.append("Изменений сохранены\n");
+                    } catch (Exception ex)
+                    {
+                        System.out.println(ex.getMessage());
+                    }
+                }
+            });
             buttonPanel.add(b1);
             buttonPanel.add(b2);
             buttonPanel.add(b3);
+            buttonPanel.add(b4);
             JPanel east = new JPanel(new GridBagLayout());
             east.setBorder(BorderFactory.createLineBorder(Color.black));
             GridBagConstraints gbc = new GridBagConstraints();
