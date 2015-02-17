@@ -49,7 +49,6 @@ public class Schedule {
                                 SimpleDateFormat df = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
                                 Date d = df.parse(input[input.length-1]);
                                 u.AddEvent(d, msg);
-                                System.out.println("Команда успешно выполнена");
                                 break;
                             }
                             System.out.println("Вы ввели некорректное имя");
@@ -108,6 +107,7 @@ public class Schedule {
                                         if (u2.getName().equals(input[input.length-1]))
                                         {
                                             u2.AddEvent(ev.getDate(), msg);
+                                            System.out.println("Событие успешно склонировано");
                                         }
                                     }
                                 }

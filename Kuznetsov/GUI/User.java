@@ -3,6 +3,7 @@
  */
 import com.sun.javafx.collections.transformation.SortedList;
 
+import javax.swing.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -10,13 +11,16 @@ public class User {
     private String name;
     private TimeZone zone;
     private boolean active;
+    private boolean neu;
     private TreeSet<Event> events;
-    public User(String name, TimeZone zone, boolean active)
+    public static JTextArea ta;
+    public User(String name, TimeZone zone, boolean active, boolean neu)
     {
         this.name = name;
         this.zone = zone;
         this.active = active;
         events = new TreeSet<Event>(new Compare());
+        this.neu = neu;
     }
     public String getName()
     {
@@ -25,6 +29,10 @@ public class User {
     public Boolean isActive()
     {
         return active;
+    }
+    public void setNonNew()
+    {
+        neu = false;
     }
     public TreeSet<Event> getEvents()
     {
@@ -50,14 +58,16 @@ public class User {
         this.zone = zone;
         this.active = active;
     }
-    public void AddEvent(Date date, String text)
+    public void AddEvent(Date date, String text, boolean neu) throws IllegalArgumentException
     {
         int l = events.size();
-        events.add(new Event(date, text, this));
-        if (events.size() == l)
-            System.out.println("Нельзя создать два события с одним текстом");
-        else
-            System.out.println("Команда успешно выполнена");
+        events.add(new Event(date, text, this, neu));
+        if (neu) {
+            if (events.size() == l)
+                ta.append("Нельзя создать два события с одним текстом\n");
+            else
+                ta.append("Команда успешно выполнена\n");
+        }
     }
     public void ShowInfo()
     {
@@ -73,6 +83,10 @@ public class User {
             System.out.println(e.getText());
         }
     }
+    public boolean isNew()
+    {
+        return neu;
+    }
     public void RemoveEvent(String text)
     {
         for (Event e : events)
@@ -83,7 +97,7 @@ public class User {
                 break;
             }
         }
-        System.out.println("Нет такого события");
+        ta.append("Нет такого события\n");
     }
 }
 class Compare implements Comparator<Event>

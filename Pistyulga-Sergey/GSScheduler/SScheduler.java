@@ -1,7 +1,6 @@
 
 import java.util.*;
 import java.text.*;
-import java.io.*;
 
 class SchUser {
 	private String name;
@@ -31,11 +30,13 @@ class SchUser {
 	}
 }
 
-class SchEvent implements Comparable<SchEvent> {
+class SchEvent extends TimerTask implements Comparable<SchEvent> {
 	private Date timeInstant;
 	private String info;
 	private SchUser owner;
 	private SimpleDateFormat dFormat;
+	private static LogHolder logHolder;
+	private static Timer timer = new Timer();
 	
 	SchEvent(String formattedDate, String eventInfo,
 				SchUser user, SimpleDateFormat dateFormat)
@@ -43,6 +44,7 @@ class SchEvent implements Comparable<SchEvent> {
 	{
 		this((Date)null,eventInfo,user,dateFormat);
 		timeInstant = dFormat.parse(formattedDate);
+		timer.schedule(this, getDate());
 	}
 	
 	SchEvent(Date date, String eventInfo,
@@ -56,7 +58,16 @@ class SchEvent implements Comparable<SchEvent> {
 		if (date!=null) {
 			String defaultDate = dateFormat.format(date);
 			timeInstant = dFormat.parse(defaultDate);
+			timer.schedule(this, getDate());
 		}
+	}
+	
+	public static LogHolder getLogHolder() {
+		return logHolder;
+	}
+	
+	public static void setLogHolder(LogHolder log) {
+		logHolder = log;
 	}
 	
 	public String getTime() {
@@ -81,6 +92,14 @@ class SchEvent implements Comparable<SchEvent> {
 		owner = newOwner;
 	}
 	
+	public void setDate(Date date) {
+		timeInstant = date;
+	}
+	
+	public void setInfo(String text) {
+		info = text;
+	}
+	
 	public int compareTo(SchEvent e2) {
 		int usernameDiff = getOwner().getName().compareTo(e2.getOwner().getName());
 		if (usernameDiff!=0) return -usernameDiff;
@@ -102,13 +121,26 @@ class SchEvent implements Comparable<SchEvent> {
 			return getDate().equals(((SchEvent) o2).getDate()) && getInfo().equals(((SchEvent) o2).getInfo());
 		return false;
 	}
+
+	public void run() {
+		if (getOwner().isactive())
+			logHolder.print(getOwner().getName()+" "
+				+getInfo() +" at "+ getTime());
+	}
 }
 
 public class SScheduler {
 	
-	private static void parseCmd(String cmdStr)
-			throws ParseException
+	private static final String
+				DONEMSG = "Success!",
+				UEXISTMSG = "User already exists!",
+				UNOTFOUND = "User not found!",
+				EEXISTMSG = "Event info is not unique!",
+				ENOTFOUND = "No event with specified params!";
+	
+	public static void parseCmd(String cmdStr)
 	{
+		try {
 		String[] args = cmdStr.split(" ");
 		switch(args[0]) {
 		case "Create":
@@ -132,16 +164,16 @@ public class SScheduler {
 		case "ShowInfo":
 			showUserInfo(args);
 			break;
-		case "StartScheduling":
-			if (args.length==1)
-				runTasks();
-			break;
 		default:
-			System.out.println("Unknown command!");
+			putmsg("Unknown command!");
+		}
+		}
+		catch(ParseException e) {
+			putmsg("Time string should be as dd.MM.yyyy-hh:mm:ss");
 		}
 	}
 	
-	private static SchUser findUser(String name) {
+	public static SchUser findUser(String name) {
 		SchUser existingUser = null;
 		for (SchUser u : users)
 			if (u.getName().equals(name)) {
@@ -151,7 +183,7 @@ public class SScheduler {
 		return existingUser;
 	}
 	
-	private static SchEvent findEvent(String text, SchUser user) {
+	public static SchEvent findEvent(String text, SchUser user) {
 		SchEvent existingEvent = null;
 		for(SchEvent e : events)
 			if (e.getInfo().equals(text) && e.getOwner()==user) {
@@ -162,7 +194,7 @@ public class SScheduler {
 	}
 	
 	private static void editUser(String[] args, boolean isNew) {
-		if (args.length==4) {
+		//if (args.length==4) {
 			String name = args[1], tzStr = args[2],
 					isActiveStr = args[3];
 			boolean isGMT = false;
@@ -176,7 +208,7 @@ public class SScheduler {
 				}
 			}
 			if (!isGMT) {
-				System.out.println("Timezone should be as GMT<number>");
+				putmsg("Timezone should be as GMT<number>");
 				return;
 			}
 			boolean isActive = isActiveStr.equals("active");
@@ -184,7 +216,7 @@ public class SScheduler {
 				SchUser existingUser = findUser(name);
 				if (isNew) {
 					if (existingUser!=null) {
-						System.out.println("User "+name+" already exists!");
+						putmsg(UEXISTMSG);
 						return;
 					}
 					else {
@@ -196,21 +228,21 @@ public class SScheduler {
 					if (existingUser!=null)
 						existingUser.modify(isActive,tzStr);
 					else {
-						System.out.println("User "+name+" not found!");
+						putmsg(UNOTFOUND);
 						return;
 					}
 				}
-				System.out.println("Success!");
+				putmsg(DONEMSG);
 				return;
 			}
-		}
-		System.out.println("Usage: "+args[0]+" <name> <timezone> <active|disabled>");
+		//}
+		//putmsg("Usage: "+args[0]+" <name> <timezone> <active|disabled>",true);
 	}
 	
 	private static void addEvent(String[] args)
 			throws ParseException
 	{
-		if (args.length==4) {
+		//if (args.length==4) {
 			String name = args[1], text = args[2],
 					time = args[3];
 			SchUser existingUser = findUser(name);
@@ -218,36 +250,37 @@ public class SScheduler {
 				SchEvent existingEvent = findEvent(text,existingUser);
 				if (existingEvent==null) {
 					events.add(new SchEvent(time, text, existingUser, dateFormat));
-					System.out.println("Success!");
+					putmsg(DONEMSG);
 				}
-				else System.out.println("Event info is not unique!");
+				else putmsg(EEXISTMSG);
 			}
-			else System.out.println("User "+name+" not found!");
-		}
-		else System.out.println("Usage: "+args[0]+" <name> <text> <datetime>");
+			else putmsg(UNOTFOUND);
+		//}
+		//else putmsg("Usage: "+args[0]+" <name> <text> <datetime>",true);
 	}
 	
 	private static void removeEvent(String[] args) {
-		if (args.length==3) {
+		//if (args.length==3) {
 			String name = args[1], text = args[2];
 			SchUser existingUser = findUser(name);
 			if (existingUser!=null) {
 				SchEvent existingEvent = findEvent(text,existingUser);
 				if (existingEvent!=null) {
+					existingEvent.cancel();
 					events.remove(existingEvent);
-					System.out.println("Success!");
+					putmsg(DONEMSG);
 				}
-				else System.out.println("No event with specified params!");
+				else putmsg(ENOTFOUND);
 			}
-			else System.out.println("User "+name+" not found!");
-		}
-		else System.out.println("Usage: "+args[0]+" <name> <text>");
+			else putmsg(UNOTFOUND);
+		//}
+		//else putmsg("Usage: "+args[0]+" <name> <text>",true);
 	}
 	
 	private static void addRandomEvent(String[] args)
 				throws ParseException
 	{
-		if (args.length==5) {
+		//if (args.length==5) {
 			String name = args[1], text = args[2], start = args[3],
 					end = args[4];
 			SchUser existingUser = findUser(name);
@@ -260,15 +293,15 @@ public class SScheduler {
 							rnd.nextDouble())) + startDate;
 					events.add(new SchEvent(new Date(dateNum), text, existingUser, dateFormat));
 				}
-				else System.out.println("Left bound is greater than right!");
+				else putmsg("Left bound is greater than right!");
 			}
-			else System.out.println("User "+name+" not found!");
-		}
-		else System.out.println("Usage: "+args[0]+" <name> <text> <start_date> <end_date>");
+			else putmsg(UNOTFOUND);
+		//}
+		//else putmsg("Usage: "+args[0]+" <name> <text> <start_date> <end_date>",true);
 	}
 	
 	private static void copyEvent(String[] args) {
-		if (args.length==4) {
+		//if (args.length==4) {
 			String text = args[1], name1 = args[2], name2 = args[3];
 			SchUser u1 = findUser(name1), u2 = findUser(name2);
 			if (u1!=null && u2!=null) {
@@ -278,22 +311,22 @@ public class SScheduler {
 						SchEvent newEvent = (SchEvent)e.clone();
 						newEvent.setOwner(u2);
 					}
-					else System.out.println("Destination user has same event!");
+					else putmsg(EEXISTMSG);
 				}
-				else System.out.println("No event with specified params!");
+				else putmsg(ENOTFOUND);
 			}
-			else System.out.println("Users not found!");
-		}
-		else System.out.println("Usage: "+args[0]+" <text> <src_user> <dst_user>");
+			else putmsg(UNOTFOUND);
+		//}
+		//else putmsg("Usage: "+args[0]+" <text> <src_user> <dst_user>",true);
 	}
 	
 	private static void showUserInfo(String[] args) {
-		if (args.length==2) {
+		//if (args.length==2) {
 			String name = args[1];
 			SchUser u = findUser(name);
 			if (u!=null) {
-				System.out.println("User: "+name+" "+u.getTimeZone()+" "+
-								(u.isactive() ? "active" : "disabled")+"\n");
+				String msg = ("\nUser: "+name+" "+u.getTimeZone()+" "+
+								(u.isactive() ? "active" : "disabled")+"\n\n");
 				TreeMap<Date, String> eventsMap = new TreeMap<Date, String>();
 				for(SchEvent e : events)
 					if (e.getOwner()==u) {
@@ -306,58 +339,33 @@ public class SScheduler {
 				int i = 1;
 				Set<Date> dates = eventsMap.keySet();
 				for (Date date : dates)
-					System.out.println(i++ +". "+eventsMap.get(date));
-				System.out.println();
+					msg += (i++ +". "+eventsMap.get(date)+"\n");
+				putmsg(msg);
 			}
-			else System.out.println("User "+name+" not found!");
-		}
-		else System.out.println("Usage: "+args[0]+" <name>");
+			else putmsg(UNOTFOUND);
+		//}
+		//else putmsg("Usage: "+args[0]+" <name>",true);
 	}
 	
-	private static void runTasks() {
-		System.out.println("\nRunning scheduled tasks:\n---");
-		final ArrayList<SchEvent> activeEvents = new ArrayList<SchEvent>();
-		for(SchEvent e : events) {
-			if (e.getOwner().isactive())
-				activeEvents.add(e);
-		}
-		Collections.sort(activeEvents);
-		Timer t = new Timer();
-		while (!activeEvents.isEmpty()) {
-				final SchEvent e = activeEvents.get(0);
-				final ArrayList<SchEvent> eqEvents = new ArrayList<SchEvent>();
-				for (SchEvent eachEvent : activeEvents)
-					if (e.equals(eachEvent))
-						eqEvents.add(eachEvent);
-				TimerTask task = new TimerTask() {
-					public void run() {
-						for (SchEvent eachEqEvent : eqEvents)
-							if (eachEqEvent.equals(e))
-								System.out.println(new Date()+": "+
-										eachEqEvent.getOwner().getName()+" "
-										+eachEqEvent.getInfo() +" at "+ eachEqEvent.getTime());
-						while (activeEvents.remove(e)) {};
-						if (activeEvents.isEmpty()) {
-							System.out.println("Finished.");
-							System.exit(0);
-						}
-					}
-				};
-				t.schedule(task, e.getDate());
-		}
+	private static void putmsg(String message) {
+		SchEvent.getLogHolder().print(message);
 	}
 	
 	private static ArrayList<SchUser> users = new ArrayList<SchUser>();
-	private static ArrayList<SchEvent> events = new ArrayList<SchEvent>();
+	public static ArrayList<SchEvent> events = new ArrayList<SchEvent>();
 	public static SimpleDateFormat dateFormat =
 			new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
 	
-	public static void main(String[] args) {
+	public static ArrayList<SchUser> getUsers() {
+		return users;
+	}
+	
+	/*public static void main(String[] args) {
 		System.out.print("\n>");
 		Console con = System.console();
 		if (con!=null) {
-			try(BufferedReader rd = //new BufferedReader(new FileReader("cmds.txt"))
-					new BufferedReader(con.reader())
+			try(BufferedReader rd = new BufferedReader(new FileReader("cmds.txt"))
+					//new BufferedReader(con.reader())
 			) {
 				String cmdStr = rd.readLine();
 				while(!cmdStr.equals("exit")) {
@@ -374,5 +382,5 @@ public class SScheduler {
 			}
 		}
 		else System.out.println("Failed to assign console!");
-	}
+	}*/
 }

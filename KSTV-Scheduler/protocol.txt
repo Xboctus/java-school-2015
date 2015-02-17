@@ -1,0 +1,87 @@
+ - Запрос выполняется методом POST
+ - Для клиента и сервера перечислены параметры, которые они передают друг другу
+ - Необязательные поля обозначены как [par=<par>]
+
+= (Для всех действий) =
+Сервер:
+	result = <result>
+<result>:
+	ok - запрос выполнен успешно
+	lexical_error - лексическая ошибка (лексически некорректное имя пользователя или пароль, ошибка в названии временной зоны и т.п.)
+
+= Начало сессии =
+Клиент:
+	action = start_session
+	login = <login> - логин пользователя
+	password = <password> - пароль этого пользователя
+	listen_port = <port> - прослушиваемый клиентом порт
+<result>:
+	login_error - неверная пара логин-пароль
+
+= Добавление пользователя =
+Клиент:
+	action = create_user
+	login = <login> - логин пользователя
+	password = <password> - пароль этого пользователя
+	timezone = <timezone>
+	[active = <active>] - по умолчанию true
+	listen_port = <port> - прослушиваемый клиентом порт
+<result>:
+	login_exists - такой логин уже существует
+
+= Изменение информации о пользователе =
+Клиент:
+	action = change_user
+	[timezone = <timezone>]
+	[active = <active>]
+	[newpassword = <newpassword>]
+
+= Запрос информации о пользователе =
+Клиент:
+	action = user_info
+	login_from = <login>
+Сервер:
+	timezone = <timezone>
+	active = <active>
+<result>:
+	no_such_login - запрашиваемый логин не существует
+
+= Добавление события =
+Клиент:
+	action = add_event
+	datetime = <datetime>
+	text = <text>
+<result>:
+	event_exists - событие с таким текстом у этого пользователя уже есть
+
+= Удаление события =
+Клиент:
+	action = remove_event
+	text = <text>
+<result>:
+	no_such_event - события с таким текстом у этого пользователя нет
+
+= Добавление случайного события =
+Клиент:
+	action = add_random_event
+	text = <text>
+	datetime_from = <datetime>
+	datetime_to = <datetime>
+<result>:
+	event_exists - событие с таким текстом у этого пользователя уже есть
+
+= Клонирование события =
+Клиент:
+	action = clone_event
+	login_from = <login>
+	text = <text>
+<result>:
+	no_such_login - запрашиваемый логин не существует
+	no_such_event - события с таким текстом у пользователя login_from нет
+	event_exists - событие с таким текстом у этого пользователя уже есть
+
+-----
+
+= Событие =
+Сервер:
+	text = <text>
