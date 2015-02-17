@@ -310,10 +310,24 @@ public class BaseForm extends JFrame {
                     }
                 }
             });
+            JButton b5 = new JButton("Send");
+            b5.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    try {
+                        Sender.message();
+                    }
+                    catch (Exception ex)
+                    {
+                        System.out.println(ex);
+                    }
+                }
+            });
             buttonPanel.add(b1);
             buttonPanel.add(b2);
             buttonPanel.add(b3);
             buttonPanel.add(b4);
+            buttonPanel.add(b5);
             JPanel east = new JPanel(new GridBagLayout());
             east.setBorder(BorderFactory.createLineBorder(Color.black));
             GridBagConstraints gbc = new GridBagConstraints();
