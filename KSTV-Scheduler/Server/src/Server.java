@@ -1,8 +1,8 @@
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.PrintWriter;
+//import java.io.PrintWriter;
 import java.util.HashMap;
-import java.util.TimeZone;
+//import java.util.TimeZone;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -15,7 +15,7 @@ public class Server extends HttpServlet {
 		BufferedReader reader = req.getReader();
 		String r = reader.readLine(); // request should contain exactly one line
 
-		HashMap<String, String> pars = new HashMap<String, String>();
+		HashMap<String, String> pars = new HashMap<>();
 		String[] kvs = r.split("&");
 		for (String kv: kvs) {
 			int i = kv.indexOf('=');
@@ -25,7 +25,7 @@ public class Server extends HttpServlet {
 		return pars;
 	}
 
-	@Override
+/*	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 		HashMap<String, String> pars = getPars(req);
 		String action = pars.get("action");
@@ -46,9 +46,47 @@ public class Server extends HttpServlet {
 		res.setContentType("text/plain");
 		PrintWriter pw = res.getWriter();
 		pw.close();
-	}
+	}*/
 
 	@Override
+	public void doPut(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+		HttpSession session = req.getSession();
+		boolean sessionIsNew = session.isNew();
+
+		HashMap<String, String> pars = getPars(req);
+		String action = pars.get("action");
+
+		if (action == null) {
+			res.sendError(HttpServletResponse.SC_BAD_REQUEST);
+		} else switch (action) {
+		case "start_session": {
+			String login = pars.get("login");
+			String password = pars.get("password");
+			String listenPort = pars.get("listen_port");
+			if (login == null || password == null || listenPort == null) {
+				res.sendError(HttpServletResponse.SC_BAD_REQUEST);
+				return;
+			}
+			int port;
+			try {
+				port = Integer.parseInt(listenPort);
+			} catch (NumberFormatException e) {
+				res.sendError(HttpServletResponse.SC_BAD_REQUEST);
+				return;
+			}
+			ServerHandler.Error error = ServerHandler.startSession(sessionIsNew, login, password, port);
+			if (error == ServerHandler.Error.UNAUTHORIZED) {
+				res.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+				return;
+			}
+			break;
+		}
+		default:
+			res.sendError(HttpServletResponse.SC_BAD_REQUEST);
+		}
+	}
+
+/*	@Override
 	public void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 		HttpSession session = req.getSession();
 		boolean sessionIsNew = session.isNew();
@@ -99,5 +137,5 @@ public class Server extends HttpServlet {
 		}
 
 		pw.close();
-	}
+	}*/
 }
