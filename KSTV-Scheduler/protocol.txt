@@ -52,6 +52,11 @@
 Сервер:
 	timezone = <timezone>
 	active = <active>
+	datetime = <datetime>
+	text = <text>
+	datetime = <datetime>
+	text = <text>
+	...
 Коды состояния:
 	451 - запрашиваемый логин не существует
 

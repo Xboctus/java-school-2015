@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
+import java.util.TimeZone;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -10,25 +11,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 public class Server extends HttpServlet {
-	@Override
-	public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-		res.setContentType("text/html");
-
-		PrintWriter pw = res.getWriter();
-		pw.println("<html>");
-		pw.println(" <body>");
-		pw.println("  Hello, world!");
-		pw.println(" </body>");
-		pw.println("</html>");
-
-		pw.close();
-	}
-
-	@Override
-	public void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
-		HttpSession session = req.getSession();
-		boolean sessionIsNew = session.isNew();
-
+	private static HashMap<String, String> getPars(HttpServletRequest req) throws IOException {
 		BufferedReader reader = req.getReader();
 		String r = reader.readLine(); // request should contain exactly one line
 
@@ -38,6 +21,39 @@ public class Server extends HttpServlet {
 			int i = kv.indexOf('=');
 			pars.put(kv.substring(0, i), kv.substring(i + 1));
 		}
+
+		return pars;
+	}
+
+	@Override
+	public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+		HashMap<String, String> pars = getPars(req);
+		String action = pars.get("action");
+		String loginFrom = pars.get("login_from");
+
+		if (action == null || loginFrom == null) {
+			res.sendError(HttpServletResponse.SC_BAD_REQUEST);
+			return;
+		}
+
+		ServerHandler.UserInfoResult userInfo = ServerHandler.userInfo(loginFrom);
+
+		if (userInfo.error == ServerHandler.Error.NO_SUCH_USER) {
+			res.sendError(451);
+			return;
+		}
+
+		res.setContentType("text/plain");
+		PrintWriter pw = res.getWriter();
+		pw.close();
+	}
+
+	@Override
+	public void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+		HttpSession session = req.getSession();
+		boolean sessionIsNew = session.isNew();
+
+		HashMap<String, String> pars = getPars(req);
 
 		res.setContentType("text/plain");
 
