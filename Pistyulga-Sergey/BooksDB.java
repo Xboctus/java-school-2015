@@ -11,6 +11,7 @@ import javax.xml.transform.stream.StreamSource;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 import javax.xml.validation.Validator;
+import org.w3c.dom.*;
 
 class BookContentHandler extends DefaultHandler {
 	
@@ -60,6 +61,28 @@ public class BooksDB {
 		System.exit(1);
 	}
 	
+	private static ArrayList<Hashtable<String, String>> lookDocument(Document xml) {
+		ArrayList<Hashtable<String, String>> books =
+				new ArrayList<Hashtable<String, String>>();
+		NodeList bookElems = xml.getChildNodes().item(0).getChildNodes();
+		int len = bookElems.getLength();
+		for (int i = 0; i < len; i++) {
+			Node book = bookElems.item(i);
+			if (book.getNodeName().equals("book")) {
+				Hashtable<String, String> bookTable = new Hashtable<String, String>();
+				NodeList keys = book.getChildNodes();
+				int keysLen = keys.getLength();
+				for (int j = 0; j < keysLen; j++) {
+					Node node = keys.item(j);
+					if (!node.getNodeName().equals("#text"));
+						bookTable.put(node.getNodeName(), node.getTextContent());
+				}
+				books.add(bookTable);
+			}
+		}
+		return books;
+	}
+	
 	private static boolean parseXML(File f, XMLAlg alg) {
 		try {
 			SchemaFactory schemaFactory =
@@ -79,7 +102,10 @@ public class BooksDB {
 				fin.close();
 				break;
 			case DOM:
-				// To be written...
+				DocumentBuilderFactory docbFactory = DocumentBuilderFactory.newInstance();
+				DocumentBuilder builder = docbFactory.newDocumentBuilder();
+				Document xml = builder.parse(f);
+				saveToDB(lookDocument(xml));
 				break;
 			}
 		} catch (ParserConfigurationException | SAXException e) {
@@ -139,8 +165,8 @@ public class BooksDB {
 	
 	public static void main(String[] args) {
 		String usage = "Usage: <program> DOM|SAX";
-		XMLAlg alg = XMLAlg.SAX;
-		/*if (args.length==1) {
+		XMLAlg alg = null;
+		if (args.length==1) {
 			switch(args[0]) {
 			case "SAX":
 				alg = XMLAlg.SAX;
@@ -153,7 +179,6 @@ public class BooksDB {
 			}
 		}
 		else abort(usage);
-		*/
 		
 		String connectionStr = "jdbc:mysql://localhost/booksdb?user=root&password=123";
 		String createTableStr = "create table if not exists `books` (\n"+
