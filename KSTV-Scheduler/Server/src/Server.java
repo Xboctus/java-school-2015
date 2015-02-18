@@ -1,14 +1,10 @@
-import java.io.BufferedReader;
-import java.io.IOException;
+import java.io.*;
 //import java.io.PrintWriter;
 import java.util.HashMap;
 //import java.util.TimeZone;
 
 import javax.servlet.ServletException;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
+import javax.servlet.http.*;
 
 public class Server extends HttpServlet {
 	private static HashMap<String, String> getPars(HttpServletRequest req) throws IOException {
@@ -23,6 +19,47 @@ public class Server extends HttpServlet {
 		}
 
 		return pars;
+	}
+
+	private static final int SC_NO_SUCH_USER = 451;
+
+	private static class Response {
+		public String body;
+		public int statusCode;
+
+		public Response(String body, int statusCode) {
+			this.body = body;
+			this.statusCode = statusCode;
+		}
+
+		public static final Response BAD_REQUEST_RESPONSE = new Response(null, HttpServletResponse.SC_BAD_REQUEST);
+	}
+
+	private static boolean isLetter(char c) {
+		return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || c == '_';
+	}
+
+	private static boolean isDigit(char c) {
+		return '0' <= c && c <= '9';
+	}
+
+	private static boolean checkLogin(String login) {
+		if (login.isEmpty()) {
+			return false;
+		}
+		if (!isLetter(login.charAt(0))) {
+			return false;
+		}
+		for (int i = 1; i < login.length(); ++i) {
+			if (!(isLetter(login.charAt(i)) || isDigit(login.charAt(i)))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private static boolean checkPort(int port) {
+		return 0 <= port && port < (1 << 16);
 	}
 
 /*	@Override
@@ -48,7 +85,7 @@ public class Server extends HttpServlet {
 		pw.close();
 	}*/
 
-	@Override
+/*	@Override
 	public void doPut(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 		HttpSession session = req.getSession();
 		boolean sessionIsNew = session.isNew();
@@ -84,24 +121,60 @@ public class Server extends HttpServlet {
 		default:
 			res.sendError(HttpServletResponse.SC_BAD_REQUEST);
 		}
+	}*/
+
+	private static Response serveTest(boolean sessionIsNew, HashMap<String, String> pars) throws ServletException, IOException {
+		String login = pars.get("login");
+		String listenPortStr = pars.get("listen_port");
+		if (login == null || listenPortStr == null) {
+			return Response.BAD_REQUEST_RESPONSE;
+		}
+
+		if (!checkLogin(login)) {
+			return Response.BAD_REQUEST_RESPONSE;
+		}
+
+		int listenPort;
+		try {
+			listenPort = Integer.parseInt(listenPortStr);
+		} catch (NumberFormatException e) {
+			return Response.BAD_REQUEST_RESPONSE;
+		}
+
+		if (!checkPort(listenPort)) {
+			return Response.BAD_REQUEST_RESPONSE;
+		}
+
+		ServerHandler.TestResult testResult = ServerHandler.test(login, listenPort);
+		if (testResult.error == ServerHandler.Error.NO_SUCH_USER) {
+			return new Response(null, SC_NO_SUCH_USER);
+		}
+
+		if (testResult.exists) {
+			return new Response("result=yes", HttpServletResponse.SC_OK);
+		} else {
+			return new Response("result=no", HttpServletResponse.SC_OK);
+		}
 	}
 
-/*	@Override
+	@Override
 	public void doPost(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 		HttpSession session = req.getSession();
 		boolean sessionIsNew = session.isNew();
 
 		HashMap<String, String> pars = getPars(req);
 
-		res.setContentType("text/plain");
-
-		PrintWriter pw = res.getWriter();
+		Response respose;
 
 		String action = pars.get("action");
 		if (action == null) {
-			pw.print("result=lexical_error");
+			respose = Response.BAD_REQUEST_RESPONSE;
 		} else switch (action) {
-		case "start_session":
+		case "test": {
+			respose = serveTest(sessionIsNew, pars);
+			break;
+		}
+/*		case "start_session":
 			String login = pars.get("login");
 			String password = pars.get("password");
 			String listen_port = pars.get("listen_port");
@@ -131,11 +204,17 @@ public class Server extends HttpServlet {
 			break;
 		case "clone_event":
 			;
-			break;
+			break;*/
 		default:
-			pw.print("result=lexical_error");
+			respose = Response.BAD_REQUEST_RESPONSE;
 		}
 
-		pw.close();
-	}*/
+		res.setStatus(respose.statusCode);
+		if (respose.body != null) {
+			res.setContentType("text/plain");
+			PrintWriter pw = res.getWriter();
+			pw.print(respose.body);
+			pw.close();
+		}
+	}
 }
