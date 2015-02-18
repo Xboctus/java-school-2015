@@ -12,8 +12,8 @@ public class Sender {
     {
         URL url = new URL("http://localhost:8080");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
-        con.setRequestMethod("POST");
-        String prm = "num=12345";
+        con.setRequestMethod("PUT");
+        String prm = "name=Pavel";
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
         os.writeBytes(prm);
@@ -30,5 +30,17 @@ public class Sender {
         }
         in.close();
         System.out.println(response.toString());
+    }
+    public static boolean create() throws Exception
+    {
+        return true;
+    }
+    public static boolean addEvent() throws Exception
+    {
+        return true;
+    }
+    public static void showInfo() throws Exception
+    {
+
     }
 }

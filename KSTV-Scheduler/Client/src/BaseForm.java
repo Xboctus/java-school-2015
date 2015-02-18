@@ -25,14 +25,14 @@ import javax.swing.tree.ExpandVetoException;
  * Created by Pavel on 12.02.2015.
  */
 public class BaseForm extends JFrame {
-    private ArrayList<User> users;
+    //private ArrayList<User> users;
     public BaseForm()
     {
         setTitle("Schedule");
         setSize(700, 500);
         setResizable(false);
         setLocationRelativeTo(null);
-        users = new ArrayList<>();
+        /*users = new ArrayList<>();
         try {
             Class.forName("sun.jdbc.odbc.JdbcOdbcDriver");
             Connection con = DriverManager.getConnection("jdbc:odbc:Schedule");
@@ -58,7 +58,7 @@ public class BaseForm extends JFrame {
         catch (Exception e)
         {
             System.out.println(e.getMessage());
-        }
+        }*/
     }
     public void initialize(final JFrame jf)
     {
@@ -107,7 +107,19 @@ public class BaseForm extends JFrame {
                             if (t1.getText().trim().length()==0)
                                 tp.append("Введите имя пользователя\n");
                             else {
-                                boolean f = false;
+                                if (t3.getText().trim().length() == 0)
+                                    tp.append("Введите пароль\n");
+                                else
+                                    try {
+                                        if (Sender.create())
+                                        {
+                                            jd.dispose();
+                                        }
+                                    }catch (Exception ex)
+                                    {
+                                        JOptionPane.showMessageDialog(jd,"Ошибка соединения");
+                                    }
+                                /*boolean f = false;
                                 for (User u : users)
                                 {
                                     if (u.getName().equals(t1.getText().trim()))
@@ -121,7 +133,7 @@ public class BaseForm extends JFrame {
                                     users.add(new User(t1.getText().trim(), t3.getText().trim(), TimeZone.getTimeZone(t2.getText().trim()), true, true));
                                     tp.append("Пользователь успешно создан\n");
                                     jd.dispose();
-                                }
+                                }*/
                             }
                         }
                     });
@@ -170,7 +182,17 @@ public class BaseForm extends JFrame {
                                     if (t1.getText().trim().length()==0)
                                         tp.append("Введите текст сообщения\n");
                                     else {
-                                        boolean f = false;
+                                        try
+                                        {
+                                            if (Sender.addEvent())
+                                            {
+                                                jd.dispose();
+                                            }
+                                        }catch (Exception ex)
+                                        {
+                                            JOptionPane.showMessageDialog(jd,"Ошибка соединения");
+                                        }
+                                        /*boolean f = false;
                                         boolean f2 = false;
                                         for (User u: users)
                                         {
@@ -193,7 +215,7 @@ public class BaseForm extends JFrame {
                                         if (!f2)
                                             if (!f) tp.append("Вы ввели некорректное имя\n");
                                             else
-                                                jd.dispose();
+                                                jd.dispose();*/
                                     }
                                 }
                             }
@@ -233,7 +255,14 @@ public class BaseForm extends JFrame {
                     jb.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                            boolean f = false;
+                            try
+                            {
+                                Sender.showInfo();
+                            }catch (Exception ex)
+                            {
+                                JOptionPane.showMessageDialog(jd,"Ошибка соединения");
+                            }
+                            /*boolean f = false;
                             for (User u: users)
                             {
 
@@ -261,7 +290,7 @@ public class BaseForm extends JFrame {
                                 }
                             }
                             if (!f)
-                                JOptionPane.showMessageDialog(jd,"Такого пользователя не существует");
+                                JOptionPane.showMessageDialog(jd,"Такого пользователя не существует");*/
                         }
                     });
 
@@ -270,7 +299,7 @@ public class BaseForm extends JFrame {
                     jd.setVisible(true);
                 }
             });
-            JButton b4 = new JButton("Save");
+            /*JButton b4 = new JButton("Save");
             b4.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -313,7 +342,7 @@ public class BaseForm extends JFrame {
                         System.out.println(ex.getMessage());
                     }
                 }
-            });
+            });*/
             JButton b5 = new JButton("Send");
             b5.addActionListener(new ActionListener() {
                 @Override
@@ -330,7 +359,7 @@ public class BaseForm extends JFrame {
             buttonPanel.add(b1);
             buttonPanel.add(b2);
             buttonPanel.add(b3);
-            buttonPanel.add(b4);
+            //buttonPanel.add(b4);
             buttonPanel.add(b5);
             JPanel east = new JPanel(new GridBagLayout());
             east.setBorder(BorderFactory.createLineBorder(Color.black));
