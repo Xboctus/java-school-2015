@@ -12,7 +12,7 @@ public class Sender {
     {
         URL url = new URL("http://localhost:8080");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
-        con.setRequestMethod("PUT");
+        con.setRequestMethod("POST");
         String prm = "name=Pavel";
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
