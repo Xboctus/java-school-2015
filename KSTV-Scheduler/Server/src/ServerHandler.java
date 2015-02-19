@@ -20,13 +20,16 @@ public class ServerHandler {
 
 	public static void establishDbConnection(ServletContext sc) throws Exception {
 		Path conFile = Paths.get(sc.getRealPath("/WEB-INF/connection.txt"));
+		String driverStr;
 		String conStr;
 		try (BufferedReader br = Files.newBufferedReader(conFile, StandardCharsets.UTF_8)) {
+			driverStr = br.readLine();
 			conStr = br.readLine();
 		} catch (IOException e) {
 			throw e;
 		}
 
+		Class.forName(driverStr);
 		dbCon = DriverManager.getConnection("jdbc:" + conStr);
 
 		try {
@@ -60,9 +63,9 @@ public class ServerHandler {
 				} catch (IOException e) {
 					continue;
 				}
-				String login;
+				String sessionId;
 				try (Scanner sc = new Scanner(socket.getInputStream())) {
-					login = sc.next();
+					sessionId = sc.next();
 				} catch (IOException e) {
 					try {
 						socket.close();
@@ -71,7 +74,7 @@ public class ServerHandler {
 					}
 					continue;
 				}
-				clientSockets.put(login, socket);
+				clientSockets.put(sessionId, socket);
 			}
 		}
 	}
@@ -79,7 +82,7 @@ public class ServerHandler {
 	private static ServerSocket serverSocket;
 	private static AtomicBoolean connectionsAcceptable;
 	private static ConnectionHandler connectionHandler;
-	private static HashMap<String /*login*/, Socket> clientSockets = new HashMap<>();
+	private static HashMap<String /*sessionId*/, Socket> clientSockets = new HashMap<>();
 
 	public static void openServerSocket() throws IOException {
 		serverSocket = new ServerSocket(0);
@@ -119,17 +122,20 @@ public class ServerHandler {
 	}
 
 	private static class TestTask extends TimerTask {
-		String login;
+		String sessionId;
 		boolean notEmpty;
 
-		public TestTask(String login, boolean notEmpty) {
-			this.login = login;
+		public TestTask(String sessionId, boolean notEmpty) {
+			this.sessionId = sessionId;
 			this.notEmpty = notEmpty;
 		}
 
 		@Override
 		public void run() {
-			Socket socket = clientSockets.get(login);
+			Socket socket = clientSockets.get(sessionId);
+			if (socket == null) {
+				return;
+			}
 			OutputStream outs;
 			try {
 				outs = socket.getOutputStream();
@@ -139,11 +145,10 @@ public class ServerHandler {
 			PrintWriter pw = new PrintWriter(outs);
 			pw.print("result=" + (notEmpty ? "yes" : "no"));
 			pw.flush();
-			pw.close();
 		}
 	}
 
-	public static TestResult test(String login) {
+	public static TestResult test(String login, String sessionId) {
 		assert SyntaxChecker.checkLogin(login);
 		assert dbCon != null;
 
@@ -160,7 +165,7 @@ public class ServerHandler {
 			return new TestResult(HandlingError.INTERNAL_ERROR, false);
 		}
 
-		timer.schedule(new TestTask(login, notEmpty), 10*1000);
+		timer.schedule(new TestTask(sessionId, notEmpty), 10*1000);
 
 		HandlingError error = notEmpty ? HandlingError.NO_ERROR : HandlingError.NO_SUCH_USER;
 		TestResult res = new TestResult(error, notEmpty);
