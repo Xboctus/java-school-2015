@@ -1,77 +1,99 @@
 import java.io.*;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.servlet.ServletContext;
 
 public class ServerHandler {
-	public enum Error {
+	public enum HandlingError {
 		NO_ERROR,
-		USER_ALREADY_EXISTS,
 		NO_SUCH_USER,
-		INVALID_DATE_FORMAT,
-		EVENT_ALREADY_EXISTS,
-		NO_SUCH_EVENT,
-		UNKNOWN_COMMAND,
 		INTERNAL_ERROR,
 	}
 
-	public static class TestResult {
-		public Error error;
-		public boolean exists;
-
-		public TestResult(Error error, boolean exists) {
-			this.error = error;
-			this.exists = exists;
-		}
-	}
-
-	public static class UserInfoResult {
-		public TimeZone timeZone;
-		public boolean active;
-		public HashMap<java.util.Date, String> events;
-		public Error error;
-	}
-
-	public static UserInfoResult userInfo(String loginFrom) {
-		return new UserInfoResult();
-	}
-
-	private static Connection con;
+	private static Connection dbCon;
 	private static PreparedStatement testStmnt;
 
-	// post: throws or
-	//       doesn't throw and !con.isClosed() and !testStmnt.isClosed()
-	public static void establishConnection(ServletContext sc) throws Exception {
-		BufferedReader br = Files.newBufferedReader(Paths.get(sc.getRealPath("/WEB-INF/connection.txt")), StandardCharsets.UTF_8);
+	public static void establishDbConnection(ServletContext sc) throws Exception {
+		Path conFile = Paths.get(sc.getRealPath("/WEB-INF/connection.txt"));
 		String conStr;
-		try {
+		try (BufferedReader br = Files.newBufferedReader(conFile, StandardCharsets.UTF_8)) {
 			conStr = br.readLine();
-		} finally {
-			br.close();
+		} catch (IOException e) {
+			throw e;
 		}
 
-		con = DriverManager.getConnection("jdbc:" + conStr);
-		assert con != null && !con.isClosed();
+		dbCon = DriverManager.getConnection("jdbc:" + conStr);
 
 		try {
-			testStmnt = con.prepareStatement("SELECT * FROM Users WHERE name = ?");
-			assert testStmnt != null && !testStmnt.isClosed();
+			testStmnt = dbCon.prepareStatement("SELECT * FROM Users WHERE name = ?");
 		} catch (SQLException e) {
-			con.close();
+			dbCon.close(); // FIXME: if throws, e is lost
 			throw e;
 		}
 	}
 
-	// pre: con != null and !con.isClosed()
-	public static void closeConnection() {
+	public static void closeDbConnection() throws SQLException {
+		assert dbCon != null && testStmnt != null;
 		try {
-			assert con != null && !con.isClosed();
-			con.close();
-		} catch (SQLException e) {
-			;
+			testStmnt.close();
+		} finally {
+			dbCon.close(); // FIXME: if throws, previously thrown exception is lost
+		}
+	}
+
+	private static class ConnectionHandler extends Thread {
+		public ConnectionHandler() {
+			super("Connection handler");
+		}
+
+		@Override
+		public void run() {
+			while (connectionsAcceptable.get()) {
+				Socket socket;
+				try {
+					socket = serverSocket.accept();
+				} catch (IOException e) {
+					continue;
+				}
+				String login;
+				try (Scanner sc = new Scanner(socket.getInputStream())) {
+					login = sc.next();
+				} catch (IOException e) {
+					try {
+						socket.close();
+					} catch (IOException e2) {
+						continue;
+					}
+					continue;
+				}
+				clientSockets.put(login, socket);
+			}
+		}
+	}
+
+	private static ServerSocket serverSocket;
+	private static AtomicBoolean connectionsAcceptable;
+	private static ConnectionHandler connectionHandler;
+	private static HashMap<String /*login*/, Socket> clientSockets = new HashMap<>();
+
+	public static void openServerSocket() throws IOException {
+		serverSocket = new ServerSocket(0);
+		connectionsAcceptable = new AtomicBoolean(true);
+		connectionHandler = new ConnectionHandler();
+		connectionHandler.start();
+	}
+
+	public static void closeServerSocket() throws IOException, InterruptedException {
+		connectionsAcceptable.set(false);
+		try {
+			serverSocket.close();
+		} finally {
+			connectionHandler.join(); // FIXME: if throws, previously thrown exception is lost
 		}
 	}
 
@@ -85,41 +107,64 @@ public class ServerHandler {
 		timer.cancel();
 	}
 
-	// pre: con != null and !con.isClosed()
-	// pre: login is valid
-	// pre: listenPort is valid
-	// TODO: add event
-	public static TestResult test(String login, int listenPort) {
-		ResultSet rs;
-		try {
-			assert con != null && !con.isClosed();
-			testStmnt.setString(1, login);
-			rs = testStmnt.executeQuery();
-		} catch (SQLException e) {
-			return new TestResult(Error.INTERNAL_ERROR, false);
+	public static class TestResult {
+		public HandlingError error;
+		public boolean exists;
+		public int serverPort;
+
+		public TestResult(HandlingError error, boolean exists) {
+			this.error = error;
+			this.exists = exists;
 		}
+	}
+
+	private static class TestTask extends TimerTask {
+		String login;
 		boolean notEmpty;
-		try {
-			notEmpty = rs.next();
-		} catch (SQLException e1) {
-			try {
-				rs.close();
-			} catch (SQLException e) {
-				;
-			}
-			return new TestResult(Error.INTERNAL_ERROR, false);
-		}
-/*		timer.schedule(new TimerTask() {
-			@Override
-			public void run() {
-				// ??
-			}
-		}, 15*1000);*/
-		if (notEmpty) {
-			return new TestResult(Error.NO_ERROR, notEmpty);
-		} else {
-			return new TestResult(Error.NO_SUCH_USER, notEmpty);
+
+		public TestTask(String login, boolean notEmpty) {
+			this.login = login;
+			this.notEmpty = notEmpty;
 		}
 
+		@Override
+		public void run() {
+			Socket socket = clientSockets.get(login);
+			OutputStream outs;
+			try {
+				outs = socket.getOutputStream();
+			} catch (IOException e) {
+				return;
+			}
+			PrintWriter pw = new PrintWriter(outs);
+			pw.print("result=" + (notEmpty ? "yes" : "no"));
+			pw.flush();
+			pw.close();
+		}
+	}
+
+	public static TestResult test(String login) {
+		assert SyntaxChecker.checkLogin(login);
+		assert dbCon != null;
+
+		try {
+			testStmnt.setString(1, login);
+		} catch (SQLException e) {
+			return new TestResult(HandlingError.INTERNAL_ERROR, false);
+		}
+
+		boolean notEmpty;
+		try (ResultSet rs = testStmnt.executeQuery()) {
+			notEmpty = rs.next();
+		} catch (SQLException e) {
+			return new TestResult(HandlingError.INTERNAL_ERROR, false);
+		}
+
+		timer.schedule(new TestTask(login, notEmpty), 10*1000);
+
+		HandlingError error = notEmpty ? HandlingError.NO_ERROR : HandlingError.NO_SUCH_USER;
+		TestResult res = new TestResult(error, notEmpty);
+		res.serverPort = serverSocket.getLocalPort();
+		return res;
 	}
 }
