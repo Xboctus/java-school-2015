@@ -74,13 +74,13 @@ public class Server extends HttpServlet {
 		public static final Response INTERNAL_ERROR_RESPONSE = new Response(null, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 	}
 
-	private static Response serveTest(HashMap<String, String> pars) {
+	private static Response serveTest(HashMap<String, String> pars, String sessionId) {
 		String login = pars.get("login");
 		if (login == null || !SyntaxChecker.checkLogin(login)) {
 			return Response.BAD_REQUEST_RESPONSE;
 		}
 
-		ServerHandler.TestResult testResult = ServerHandler.test(login);
+		ServerHandler.TestResult testResult = ServerHandler.test(login, sessionId);
 		if (testResult.error == ServerHandler.HandlingError.NO_SUCH_USER) {
 			return new Response(null, SC_NO_SUCH_USER);
 		}
@@ -120,7 +120,7 @@ public class Server extends HttpServlet {
 				response = Response.BAD_REQUEST_RESPONSE;
 			} else switch (action) {
 			case "test":
-				response = serveTest(pars);
+				response = serveTest(pars, req.getSession().getId());
 				break;
 			default:
 				response = Response.BAD_REQUEST_RESPONSE;
