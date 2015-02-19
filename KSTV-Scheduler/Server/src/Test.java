@@ -3,6 +3,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.*;
+import java.text.SimpleDateFormat;
+import java.util.TimeZone;
 
 import javax.servlet.ServletContext;
 
@@ -134,6 +136,108 @@ public class Test {
                 }
                 else {
                     String q = "insert Evnts(dtime, msg, userID) values (N'"+datetime+"', N'"+text+"', N'"+userID+"')";
+                    stmt.executeUpdate(q);
+                    con.commit();
+                }
+            }
+            else
+                return Error.NO_SUCH_USER;
+        }
+        catch (Exception e)
+        {
+            ;
+        }
+        finally {
+            try
+            {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (stmt != null) {
+                    stmt.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                System.err.println("Error: " + ex.getMessage());
+            }
+        }
+        return Error.NO_ERROR;
+    }
+
+
+    public static Error RemoveEvent(String login, String text)
+    {
+        try
+        {
+            stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM Users WHERE name = " + login);
+            if (rs.next())
+            {
+                int userID = rs.getInt(1);
+                rs = stmt.executeQuery("SELECT * FROM Evnts WHERE userID = "+userID+" AND msg = "+text);
+                if (rs.next())
+                {
+                    String q = "DELETE FROM Evnts WHERE userID = N'"+userID+"' AND msg = N'"+text+"'";
+                    stmt.executeUpdate(q);
+                    con.commit();
+                }
+                else {
+                    return Error.NO_SUCH_EVENT;
+                }
+            }
+            else
+                return Error.NO_SUCH_USER;
+        }
+        catch (Exception e)
+        {
+            ;
+        }
+        finally {
+            try
+            {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (stmt != null) {
+                    stmt.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                System.err.println("Error: " + ex.getMessage());
+            }
+        }
+        return Error.NO_ERROR;
+    }
+
+
+    public static Error AddRandomTimeEvent(String login, String text, String dateFrom, String dateTo)
+    {
+        try
+        {
+            stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM Users WHERE name = " + login);
+            if (rs.next())
+            {
+                int userID = rs.getInt(1);
+                String timezone = rs.getString(4);
+                rs = stmt.executeQuery("SELECT * FROM Evnts WHERE userID = "+userID+" AND msg = "+text);
+                if (rs.next())
+                {
+                    return Error.EVENT_ALREADY_EXISTS;
+                }
+                else {
+                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+                    formatter.setTimeZone(TimeZone.getTimeZone(timezone));
+                    java.util.Date date1 = formatter.parse(dateFrom);
+                    java.util.Date date2 = formatter.parse(dateTo);
+                    Date datetime = new Date (((long) ((date2.getTime() - date1.getTime())*Math.random())) + date1.getTime());
+                    String q = "insert Evnts(dtime, msg, userID) values (N'"+formatter.format(datetime)+"', N'"+text+"', N'"+userID+"')";
                     stmt.executeUpdate(q);
                     con.commit();
                 }
