@@ -42,7 +42,6 @@ public class Test {
         {
             stmt = con.createStatement();
             ResultSet rs = stmt.executeQuery("SELECT * FROM Users WHERE name = " + login);
-            //testStmnt = con.prepareStatement("SELECT * FROM Users WHERE name = ?");
             if (!rs.next())
             {
                 String q = "insert Users(name, pass, timezone, active) values (N'"+login+"', N'"+password+"', N'"+timezone+"', 1)";
@@ -58,10 +57,8 @@ public class Test {
             ;
         }
         finally {
-            // Эта часть позволяет нам закрыть все открытые ресуры
-            // В противном случае возмжожны проблемы. Поэтому будьте
-            // всегда аккуратны при работе с коннектами
-            try {
+            try
+            {
                 if (rs != null) {
                     rs.close();
                 }
@@ -79,13 +76,54 @@ public class Test {
         return Error.NO_ERROR;
     }
 
+
+    public static Error ModifyUser(String login, String password, String timezone, boolean active)
+    {
+        try
+        {
+            stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM Users WHERE name = " + login);
+            if (rs.next())
+            {
+                String q = "UPDATE Users SET pass = N'"+password+"', timezone = N'"+timezone+"', active = N'"+active+"' WHERE name = N'"+login+"'";
+                Statement stmt = con.createStatement();
+                stmt.executeUpdate(q);
+                con.commit();
+            }
+            else
+                return Error.NO_SUCH_USER;
+        }
+        catch (Exception e)
+        {
+            ;
+        }
+        finally {
+            try
+            {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (stmt != null) {
+                    stmt.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                System.err.println("Error: " + ex.getMessage());
+            }
+        }
+        return Error.NO_ERROR;
+    }
+
+
     public static Error AddEvent(String login, String text, String datetime)
     {
         try
         {
-            //stmt = con.createStatement();
+            stmt = con.createStatement();
             ResultSet rs = stmt.executeQuery("SELECT * FROM Users WHERE name = " + login);
-            //testStmnt = con.prepareStatement("SELECT * FROM Users WHERE name = ?");
             if (rs.next())
             {
                 int userID = rs.getInt(1);
@@ -96,7 +134,6 @@ public class Test {
                 }
                 else {
                     String q = "insert Evnts(dtime, msg, userID) values (N'"+datetime+"', N'"+text+"', N'"+userID+"')";
-                    Statement stmt = con.createStatement();
                     stmt.executeUpdate(q);
                     con.commit();
                 }
@@ -109,10 +146,8 @@ public class Test {
             ;
         }
         finally {
-            // Эта часть позволяет нам закрыть все открытые ресуры
-            // В противном случае возмжожны проблемы. Поэтому будьте
-            // всегда аккуратны при работе с коннектами
-            try {
+            try
+            {
                 if (rs != null) {
                     rs.close();
                 }
