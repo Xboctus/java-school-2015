@@ -27,12 +27,16 @@ import javax.swing.tree.ExpandVetoException;
  */
 public class BaseForm extends JFrame {
     //private ArrayList<User> users;
-    public BaseForm()
+    private ServerSocket sct;
+    private String login;
+    private String password;
+    public BaseForm(ServerSocket sct)
     {
         setTitle("Schedule");
         setSize(700, 500);
         setResizable(false);
         setLocationRelativeTo(null);
+        this.sct = sct;
         /*users = new ArrayList<>();
         try {
             Class.forName("sun.jdbc.odbc.JdbcOdbcDriver");
@@ -61,7 +65,7 @@ public class BaseForm extends JFrame {
             System.out.println(e.getMessage());
         }*/
     }
-    public void initialize(final JFrame jf) {
+    public void initialize(final JFrame jf, String log, String pass) {
         JPanel buttonPanel = new JPanel(new GridLayout(0, 1, 30, 30));
         JButton b1 = new JButton("Create user");
         buttonPanel.setBorder(new EmptyBorder(30, 10, 10, 10));
@@ -69,19 +73,17 @@ public class BaseForm extends JFrame {
         final JTextArea tp = new JTextArea(1, 29);
         Event.area = tp;
         User.ta = tp;
-        final ServerSocket sct;
-        try {
-            sct = new ServerSocket(0);
-            Thread trd = new Thread(){
-                @Override
-                public void run(){
-                    Listener.listen(sct, tp);
-                }
-            };
-            trd.start();
+        login = log; password = pass;
+        Thread trd = new Thread() {
+            @Override
+            public void run() {
+                Listener.listen(sct, tp);
+            }
+        };
+        trd.start();
 
         try {
-            b1.addActionListener(new ActionListener() {
+            /*b1.addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
                     final JDialog jd = new JDialog();
                     jd.setModal(true);
@@ -128,7 +130,7 @@ public class BaseForm extends JFrame {
                                     } catch (Exception ex) {
                                         JOptionPane.showMessageDialog(jd, "Ошибка соединения");
                                     }
-                                /*boolean f = false;
+                                boolean f = false;
                                 for (User u : users)
                                 {
                                     if (u.getName().equals(t1.getText().trim()))
@@ -142,7 +144,7 @@ public class BaseForm extends JFrame {
                                     users.add(new User(t1.getText().trim(), t3.getText().trim(), TimeZone.getTimeZone(t2.getText().trim()), true, true));
                                     tp.append("Пользователь успешно создан\n");
                                     jd.dispose();
-                                }*/
+                                }
                             }
                         }
                     });
@@ -151,7 +153,7 @@ public class BaseForm extends JFrame {
                     jd.getContentPane().add(panel);
                     jd.setVisible(true);
                 }
-            });
+            });*/
             JButton b2 = new JButton("Add event");
             b2.setPreferredSize(new Dimension(150, 30));
             try {
@@ -192,7 +194,8 @@ public class BaseForm extends JFrame {
                                         tp.append("Введите текст сообщения\n");
                                     else {
                                         try {
-                                            if (Sender.addEvent()) {
+                                            if (Sender.addEvent(t1.getText().trim(),t2.getText().trim())==200) {
+                                                tp.append("Событие успешно создано\n");
                                                 jd.dispose();
                                             }
                                         } catch (Exception ex) {
@@ -261,7 +264,7 @@ public class BaseForm extends JFrame {
                         @Override
                         public void actionPerformed(ActionEvent e) {
                             try {
-                                Sender.showInfo();
+                                Sender.showInfo(tp, login);
                             } catch (Exception ex) {
                                 JOptionPane.showMessageDialog(jd, "Ошибка соединения");
                             }
@@ -357,11 +360,11 @@ public class BaseForm extends JFrame {
                     }
                 }
             });
-            buttonPanel.add(b1);
+            //buttonPanel.add(b1);
             buttonPanel.add(b2);
             buttonPanel.add(b3);
             //buttonPanel.add(b4);
-            buttonPanel.add(b5);
+            //buttonPanel.add(b5);
             JPanel east = new JPanel(new GridBagLayout());
             east.setBorder(BorderFactory.createLineBorder(Color.black));
             GridBagConstraints gbc = new GridBagConstraints();
@@ -382,17 +385,12 @@ public class BaseForm extends JFrame {
             tp.append("Вы указали неверный входной параметр\n");
         }
     }
-        catch (Exception ex)
-        {
-            System.out.println(ex);
-        }
-    }
-    public static void main(String[] args)
+    /*public static void main(String[] args)
     {
         final BaseForm bf = new BaseForm();
         bf.initialize(bf);
         bf.setVisible(true);
-    }
+    }*/
     protected MaskFormatter createFormatter(String s) {
         MaskFormatter formatter = null;
         try {
