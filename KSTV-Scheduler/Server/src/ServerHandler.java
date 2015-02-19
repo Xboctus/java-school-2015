@@ -1,4 +1,5 @@
 import java.io.*;
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.sql.*;
@@ -18,17 +19,7 @@ public class ServerHandler {
 		INTERNAL_ERROR,
 	}
 
-	public static class TestResult {
-		public Error error;
-		public boolean exists;
-
-		public TestResult(Error error, boolean exists) {
-			this.error = error;
-			this.exists = exists;
-		}
-	}
-
-	public static class UserInfoResult {
+/*	public static class UserInfoResult {
 		public TimeZone timeZone;
 		public boolean active;
 		public HashMap<java.util.Date, String> events;
@@ -37,7 +28,7 @@ public class ServerHandler {
 
 	public static UserInfoResult userInfo(String loginFrom) {
 		return new UserInfoResult();
-	}
+	}*/
 
 	private static Connection con;
 	private static PreparedStatement testStmnt;
@@ -45,12 +36,12 @@ public class ServerHandler {
 	// post: throws or
 	//       doesn't throw and !con.isClosed() and !testStmnt.isClosed()
 	public static void establishConnection(ServletContext sc) throws Exception {
-		BufferedReader br = Files.newBufferedReader(Paths.get(sc.getRealPath("/WEB-INF/connection.txt")), StandardCharsets.UTF_8);
+		Path conFile = Paths.get(sc.getRealPath("/WEB-INF/connection.txt"));
 		String conStr;
-		try {
+		try (BufferedReader br = Files.newBufferedReader(conFile, StandardCharsets.UTF_8)) {
 			conStr = br.readLine();
-		} finally {
-			br.close();
+		} catch (IOException e) {
+			throw e;
 		}
 
 		con = DriverManager.getConnection("jdbc:" + conStr);
@@ -85,41 +76,60 @@ public class ServerHandler {
 		timer.cancel();
 	}
 
+	private static ServerSocket serverSocket;
+
+	public static void openSocket() throws Exception {
+		serverSocket = new ServerSocket(0);
+	}
+
+	public static void closeSocket() {
+		try {
+			serverSocket.close();
+		} catch (IOException e) {
+			;
+		}
+	}
+
+	public static class TestResult {
+		public Error error;
+		public boolean exists;
+		public int serverSocket;
+
+		public TestResult(Error error, boolean exists) {
+			this.error = error;
+			this.exists = exists;
+		}
+	}
+
 	// pre: con != null and !con.isClosed()
 	// pre: login is valid
 	// pre: listenPort is valid
 	// TODO: add event
 	public static TestResult test(String login, int listenPort) {
-		ResultSet rs;
 		try {
 			assert con != null && !con.isClosed();
 			testStmnt.setString(1, login);
-			rs = testStmnt.executeQuery();
 		} catch (SQLException e) {
 			return new TestResult(Error.INTERNAL_ERROR, false);
 		}
+
 		boolean notEmpty;
-		try {
+		try (ResultSet rs = testStmnt.executeQuery()) {
 			notEmpty = rs.next();
-		} catch (SQLException e1) {
-			try {
-				rs.close();
-			} catch (SQLException e) {
-				;
-			}
+		} catch (SQLException e) {
 			return new TestResult(Error.INTERNAL_ERROR, false);
 		}
+
 /*		timer.schedule(new TimerTask() {
 			@Override
 			public void run() {
 				// ??
 			}
 		}, 15*1000);*/
-		if (notEmpty) {
-			return new TestResult(Error.NO_ERROR, notEmpty);
-		} else {
-			return new TestResult(Error.NO_SUCH_USER, notEmpty);
-		}
 
+		Error error = notEmpty ? Error.NO_ERROR : Error.NO_SUCH_USER;
+		TestResult res = new TestResult(error, notEmpty);;
+		res.serverSocket = serverSocket.getLocalPort();
+		return res;
 	}
 }
