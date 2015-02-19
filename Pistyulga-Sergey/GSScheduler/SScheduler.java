@@ -118,7 +118,7 @@ class SchEvent extends TimerTask implements Comparable<SchEvent> {
 	
 	public boolean equals(Object o2) {
 		if (o2 instanceof SchEvent)
-			return getDate().equals(((SchEvent) o2).getDate()) && getInfo().equals(((SchEvent) o2).getInfo());
+			return getOwner()==((SchEvent)o2).getOwner() && getInfo().equals(((SchEvent) o2).getInfo());
 		return false;
 	}
 
