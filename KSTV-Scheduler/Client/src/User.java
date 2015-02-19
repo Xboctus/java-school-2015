@@ -1,7 +1,7 @@
 /**
  * Created by Pavel on 09.02.2015.
  */
-import com.sun.javafx.collections.transformation.SortedList;
+//import com.sun.javafx.collections.transformation.SortedList;
 
 import javax.swing.*;
 import java.text.SimpleDateFormat;

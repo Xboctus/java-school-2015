@@ -12,10 +12,10 @@ import java.net.URL;
 public class Sender {
     public static void message(int nsct) throws Exception
     {
-        URL url = new URL("http://localhost:8080");
+        URL url = new URL("http://localhost:8080/Server/hello");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
         con.setRequestMethod("POST");
-        String prm = "name=Pavel&listen_port="+nsct;
+        String prm = "action=test&login=Pavel&listen_port="+nsct;
         System.out.println(nsct);
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
