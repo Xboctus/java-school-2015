@@ -268,4 +268,59 @@ public class Test {
         }
         return Error.NO_ERROR;
     }
+
+
+    public static Error CloneEvent(String login, String text, String loginTo)
+    {
+        try
+        {
+            stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT * FROM Users WHERE name = " + login);
+            if (rs.next())
+            {
+                int userID = rs.getInt(1);
+                rs = stmt.executeQuery("SELECT * FROM Evnts WHERE userID = "+userID+" AND msg = "+text);
+                if (rs.next())
+                {
+                    String datetime = rs.getNString(2);
+                    rs = stmt.executeQuery("SELECT * FROM Users WHERE name = " + loginTo);
+                    if (rs.next())
+                    {
+                        userID = rs.getInt(1);
+                        String q = "insert Evnts(dtime, msg, userID) values (N'"+datetime+"', N'"+text+"', N'"+userID+"')";
+                        stmt.executeUpdate(q);
+                        con.commit();
+                    }
+                    else
+                        return Error.NO_SUCH_USER;
+                }
+                else
+                    return Error.NO_SUCH_EVENT;
+            }
+            else
+                return Error.NO_SUCH_USER;
+        }
+        catch (Exception e)
+        {
+            ;
+        }
+        finally {
+            try
+            {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (stmt != null) {
+                    stmt.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                System.err.println("Error: " + ex.getMessage());
+            }
+        }
+        return Error.NO_ERROR;
+    }
 }
