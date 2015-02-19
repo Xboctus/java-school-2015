@@ -54,6 +54,22 @@ public class Sender {
         return responseCode;
 
     }
+    public static int modify(String pass, String zone, Boolean active) throws Exception
+    {
+        URL url = new URL("http://localhost:8080/Server/hello");
+        HttpURLConnection con = (HttpURLConnection)url.openConnection();
+        con.setRequestMethod("PUT");
+        String prm = "action=change_user&password="+pass+"&timezone="+zone+"&active"+((active)?"true":"false");
+        con.setDoOutput(true);
+        DataOutputStream os = new DataOutputStream(con.getOutputStream());
+        os.writeBytes(prm);
+        os.flush();
+        os.close();
+        int responseCode = con.getResponseCode();
+        System.out.println(responseCode);
+        return responseCode;
+
+    }
     public static int login(int nsct, String login, String pass) throws Exception
     {
         URL url = new URL("http://localhost:8080/Server/hello");
@@ -77,6 +93,21 @@ public class Sender {
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
         con.setRequestMethod("PUT");
         String prm = "action=add_event"+"&text="+text+"&datetime="+date;
+        con.setDoOutput(true);
+        DataOutputStream os = new DataOutputStream(con.getOutputStream());
+        os.writeBytes(prm);
+        os.flush();
+        os.close();
+        int responseCode = con.getResponseCode();
+        System.out.println(responseCode);
+        return responseCode;
+    }
+    public static int addRanEvent(String text, String date, String date1) throws Exception
+    {
+        URL url = new URL("http://localhost:8080/Server/hello");
+        HttpURLConnection con = (HttpURLConnection)url.openConnection();
+        con.setRequestMethod("PUT");
+        String prm = "action=add_random_event"+"&text="+text+"&datetime_from="+date+"&datetime_to="+date1;
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
         os.writeBytes(prm);
@@ -116,5 +147,18 @@ public class Sender {
         }
         in.close();
         return new JTable(cs,cn);
+    }
+    public static void stop() throws Exception
+    {
+        URL url = new URL("http://localhost:8080/Server/hello");
+        HttpURLConnection con = (HttpURLConnection)url.openConnection();
+        con.setRequestMethod("PUT");
+        String prm = "action=stop_session";
+        con.setDoOutput(true);
+        DataOutputStream os = new DataOutputStream(con.getOutputStream());
+        os.writeBytes(prm);
+        os.flush();
+        os.close();
+        int responseCode = con.getResponseCode();
     }
 }
