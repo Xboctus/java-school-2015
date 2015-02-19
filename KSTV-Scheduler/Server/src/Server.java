@@ -3,6 +3,7 @@ import java.io.*;
 import java.util.HashMap;
 //import java.util.TimeZone;
 
+
 import javax.servlet.*;
 import javax.servlet.http.*;
 
@@ -12,6 +13,7 @@ public class Server extends HttpServlet {
 	public void init() throws UnavailableException {
 		try {
 			ServerHandler.establishConnection(getServletContext());
+			ServerHandler.openSocket();
 		} catch (Exception e) {
 			UnavailableException e2 = new UnavailableException(e.getMessage());
 			e2.initCause(e);
@@ -23,27 +25,16 @@ public class Server extends HttpServlet {
 	@Override
 	public void destroy() {
 		ServerHandler.stopTimer();
+		ServerHandler.closeSocket();
 		ServerHandler.closeConnection();
 	}
 
 	private static HashMap<String, String> getPars(HttpServletRequest req) {
-		BufferedReader reader;
-		try {
-			reader = req.getReader();
-		} catch (IOException e) {
-			return null;
-		}
 		String parsStr;
-		try {
+		try (BufferedReader reader = req.getReader()) {
 			parsStr = reader.readLine(); // request should contain exactly one line
 		} catch (IOException e) {
 			return null;
-		} finally {
-			try {
-				reader.close();
-			} catch (IOException e) {
-				return null;
-			}
 		}
 
 		if (parsStr == null) {
@@ -196,7 +187,7 @@ public class Server extends HttpServlet {
 		}
 	}*/
 
-	private static Response serveTest(boolean sessionIsNew, HashMap<String, String> pars) {
+	private static Response serveTest(HashMap<String, String> pars) {
 		String login = pars.get("login");
 		String listenPortStr = pars.get("listen_port");
 		if (login == null || listenPortStr == null) {
@@ -227,30 +218,26 @@ public class Server extends HttpServlet {
 		}
 
 		String body = (testResult.exists ? "result=yes" : "result=no");
-		return new Response(body, HttpServletResponse.SC_OK);
+		return new Response(body + "&listen_port=" + testResult.serverSocket, HttpServletResponse.SC_OK);
 	}
 
-	private void sendResponse(HttpServletResponse res, Response response) {
+	private static void sendResponse(HttpServletResponse res, Response response) {
 		res.setStatus(response.statusCode);
 		if (response.body != null) {
 			res.setContentType("text/plain");
-			PrintWriter pw;
-			try {
-				pw = res.getWriter();
+			try (PrintWriter pw = res.getWriter()) {
+				pw.print(response.body);
+				pw.flush();
 			} catch (IOException e) {
 				res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-				return;
 			}
-			pw.print(response.body);
-			pw.flush();
-			pw.close();
 		}
 	}
 
 	@Override
 	public void doPost(HttpServletRequest req, HttpServletResponse res) {
-		HttpSession session = req.getSession();
-		boolean sessionIsNew = session.isNew();
+//		HttpSession session = req.getSession();
+//		boolean sessionIsNew = session.isNew();
 
 		Response response;
 
@@ -264,7 +251,7 @@ public class Server extends HttpServlet {
 				response = Response.BAD_REQUEST_RESPONSE;
 			} else switch (action) {
 			case "test":
-				response = serveTest(sessionIsNew, pars);
+				response = serveTest(pars);
 				break;
 	/*		case "start_session":
 				String login = pars.get("login");
