@@ -1,4 +1,5 @@
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.sql.*;
 import java.util.*;
@@ -44,7 +45,7 @@ public class ServerHandler {
 	// post: throws or
 	//       doesn't throw and !con.isClosed() and !testStmnt.isClosed()
 	public static void establishConnection(ServletContext sc) throws Exception {
-		BufferedReader br = Files.newBufferedReader(Paths.get(sc.getRealPath("/WEB-INF/connection.txt")));
+		BufferedReader br = Files.newBufferedReader(Paths.get(sc.getRealPath("/WEB-INF/connection.txt")), StandardCharsets.UTF_8);
 		String conStr;
 		try {
 			conStr = br.readLine();
