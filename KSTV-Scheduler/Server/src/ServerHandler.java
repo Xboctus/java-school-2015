@@ -41,45 +41,27 @@ public class ServerHandler {
 	private static Connection con;
 	private static PreparedStatement testStmnt;
 
-	// post: return false or
-	//       return true and con != null and !con.isClosed() and testStmnt != null
-	public static boolean establishConnection(ServletContext sc) {
-		BufferedReader br;
-		try {
-			br = Files.newBufferedReader(Paths.get(sc.getRealPath("/WEB-INF/connection.txt")));
-		} catch (IOException e) {
-			return false;
-		}
+	// post: throws or
+	//       doesn't throw and !con.isClosed() and !testStmnt.isClosed()
+	public static void establishConnection(ServletContext sc) throws Exception {
+		BufferedReader br = Files.newBufferedReader(Paths.get(sc.getRealPath("/WEB-INF/connection.txt")));
 		String conStr;
 		try {
 			conStr = br.readLine();
-		} catch (IOException e) {
-			return false;
 		} finally {
-			try {
-				br.close();
-			} catch (IOException e1) {
-				return false;
-			}
+			br.close();
 		}
-		try {
-			con = DriverManager.getConnection("jdbc:" + conStr);
-			assert con != null && !con.isClosed();
-		} catch (SQLException e) {
-			return false;
-		}
+
+		con = DriverManager.getConnection("jdbc:" + conStr);
+		assert con != null && !con.isClosed();
+
 		try {
 			testStmnt = con.prepareStatement("SELECT * FROM Users WHERE name = ?");
-			assert testStmnt != null;
+			assert testStmnt != null && !testStmnt.isClosed();
 		} catch (SQLException e) {
-			try {
-				con.close();
-			} catch (SQLException e2) {
-				return false;
-			}
-			return false;
+			con.close();
+			throw e;
 		}
-		return true;
 	}
 
 	// pre: con != null and !con.isClosed()
@@ -126,12 +108,17 @@ public class ServerHandler {
 			}
 			return new TestResult(Error.INTERNAL_ERROR, false);
 		}
-		timer.schedule(new TimerTask() {
+/*		timer.schedule(new TimerTask() {
 			@Override
 			public void run() {
 				// ??
 			}
-		}, 15*1000);
-		return new TestResult(Error.NO_ERROR, notEmpty);
+		}, 15*1000);*/
+		if (notEmpty) {
+			return new TestResult(Error.NO_ERROR, notEmpty);
+		} else {
+			return new TestResult(Error.NO_SUCH_USER, notEmpty);
+		}
+
 	}
 }
