@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
 
@@ -9,13 +10,13 @@ import java.net.URL;
  * Created by Pavel on 17.02.2015.
  */
 public class Sender {
-    public static void message() throws Exception
+    public static void message(int nsct) throws Exception
     {
         URL url = new URL("http://localhost:8080");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
-        Socket sct = new Socket("localhost",8080);
         con.setRequestMethod("POST");
-        String prm = "name=Pavel&listen_port="+sct.getLocalPort();
+        String prm = "name=Pavel&listen_port="+nsct;
+        System.out.println(nsct);
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
         os.writeBytes(prm);

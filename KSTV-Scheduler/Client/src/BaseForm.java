@@ -8,6 +8,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.net.ServerSocket;
 import java.sql.*;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -60,15 +61,25 @@ public class BaseForm extends JFrame {
             System.out.println(e.getMessage());
         }*/
     }
-    public void initialize(final JFrame jf)
-    {
-        JPanel buttonPanel = new JPanel(new GridLayout(0,1,30,30));
+    public void initialize(final JFrame jf) {
+        JPanel buttonPanel = new JPanel(new GridLayout(0, 1, 30, 30));
         JButton b1 = new JButton("Create user");
         buttonPanel.setBorder(new EmptyBorder(30, 10, 10, 10));
         b1.setPreferredSize(new Dimension(150, 30));
         final JTextArea tp = new JTextArea(1, 29);
         Event.area = tp;
         User.ta = tp;
+        final ServerSocket sct;
+        try {
+            sct = new ServerSocket(0);
+            Thread trd = new Thread(){
+                @Override
+                public void run(){
+                    Listener.listen(sct, tp);
+                }
+            };
+            trd.start();
+
         try {
             b1.addActionListener(new ActionListener() {
                 public void actionPerformed(ActionEvent e) {
@@ -104,20 +115,18 @@ public class BaseForm extends JFrame {
                     db.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                            if (t1.getText().trim().length()==0)
+                            if (t1.getText().trim().length() == 0)
                                 tp.append("Введите имя пользователя\n");
                             else {
                                 if (t3.getText().trim().length() == 0)
                                     tp.append("Введите пароль\n");
                                 else
                                     try {
-                                        if (Sender.create())
-                                        {
+                                        if (Sender.create()) {
                                             jd.dispose();
                                         }
-                                    }catch (Exception ex)
-                                    {
-                                        JOptionPane.showMessageDialog(jd,"Ошибка соединения");
+                                    } catch (Exception ex) {
+                                        JOptionPane.showMessageDialog(jd, "Ошибка соединения");
                                     }
                                 /*boolean f = false;
                                 for (User u : users)
@@ -145,7 +154,7 @@ public class BaseForm extends JFrame {
             });
             JButton b2 = new JButton("Add event");
             b2.setPreferredSize(new Dimension(150, 30));
-            try{
+            try {
                 b2.addActionListener(new ActionListener() {
                     @Override
                     public void actionPerformed(ActionEvent e) {
@@ -176,21 +185,18 @@ public class BaseForm extends JFrame {
                         db.addActionListener(new ActionListener() {
                             @Override
                             public void actionPerformed(ActionEvent e) {
-                                if (t3.getText().trim().length()==0)
+                                if (t3.getText().trim().length() == 0)
                                     tp.append("Введите имя пользователя\n");
                                 else {
-                                    if (t1.getText().trim().length()==0)
+                                    if (t1.getText().trim().length() == 0)
                                         tp.append("Введите текст сообщения\n");
                                     else {
-                                        try
-                                        {
-                                            if (Sender.addEvent())
-                                            {
+                                        try {
+                                            if (Sender.addEvent()) {
                                                 jd.dispose();
                                             }
-                                        }catch (Exception ex)
-                                        {
-                                            JOptionPane.showMessageDialog(jd,"Ошибка соединения");
+                                        } catch (Exception ex) {
+                                            JOptionPane.showMessageDialog(jd, "Ошибка соединения");
                                         }
                                         /*boolean f = false;
                                         boolean f2 = false;
@@ -226,8 +232,7 @@ public class BaseForm extends JFrame {
                         jd.setVisible(true);
                     }
                 });
-            }catch (Exception e)
-            {
+            } catch (Exception e) {
                 tp.append("Невозможно создать событие\n");
             }
             JButton b3 = new JButton("Show info");
@@ -240,7 +245,7 @@ public class BaseForm extends JFrame {
                     jd.setSize(450, 400);
                     jd.setResizable(false);
                     jd.setLocationRelativeTo(jf);
-                    final JPanel jp = new JPanel(new GridLayout(0,3,20,20));
+                    final JPanel jp = new JPanel(new GridLayout(0, 3, 20, 20));
                     JLabel l1 = new JLabel("User");
                     JButton jb = new JButton("OK");
                     final JTextField t1 = new JTextField();
@@ -255,12 +260,10 @@ public class BaseForm extends JFrame {
                     jb.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                            try
-                            {
+                            try {
                                 Sender.showInfo();
-                            }catch (Exception ex)
-                            {
-                                JOptionPane.showMessageDialog(jd,"Ошибка соединения");
+                            } catch (Exception ex) {
+                                JOptionPane.showMessageDialog(jd, "Ошибка соединения");
                             }
                             /*boolean f = false;
                             for (User u: users)
@@ -295,7 +298,7 @@ public class BaseForm extends JFrame {
                     });
 
 
-                    jd.getContentPane().add(jp,BorderLayout.NORTH);
+                    jd.getContentPane().add(jp, BorderLayout.NORTH);
                     jd.setVisible(true);
                 }
             });
@@ -348,10 +351,8 @@ public class BaseForm extends JFrame {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     try {
-                        Sender.message();
-                    }
-                    catch (Exception ex)
-                    {
+                        Sender.message(sct.getLocalPort());
+                    } catch (Exception ex) {
                         System.out.println(ex);
                     }
                 }
@@ -374,12 +375,16 @@ public class BaseForm extends JFrame {
             tp.setEditable(false);
             JScrollPane sp = new JScrollPane(tp, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
             left.setSize(new Dimension(this.getWidth() / 2, this.getHeight()));
-            left.add(sp,BorderLayout.EAST);
+            left.add(sp, BorderLayout.EAST);
             getContentPane().add(left);
             setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        }catch (Exception e)
-        {
+        } catch (Exception e) {
             tp.append("Вы указали неверный входной параметр\n");
+        }
+    }
+        catch (Exception ex)
+        {
+            System.out.println(ex);
         }
     }
     public static void main(String[] args)
