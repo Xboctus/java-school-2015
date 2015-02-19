@@ -8,13 +8,14 @@ import javax.servlet.http.*;
 
 @SuppressWarnings("serial")
 public class Server extends HttpServlet {
-	private static boolean connectionEstablished;
-
 	@Override
 	public void init() throws UnavailableException {
-		connectionEstablished = ServerHandler.establishConnection(getServletContext());
-		if (!connectionEstablished) {
-			throw new UnavailableException("Failed to establish connection to DB");
+		try {
+			ServerHandler.establishConnection(getServletContext());
+		} catch (Exception e) {
+			UnavailableException e2 = new UnavailableException(e.getMessage());
+			e2.initCause(e);
+			throw e2;
 		}
 		ServerHandler.startTimer();
 	}
@@ -43,6 +44,10 @@ public class Server extends HttpServlet {
 			} catch (IOException e) {
 				return null;
 			}
+		}
+
+		if (parsStr == null) {
+			return null;
 		}
 
 		HashMap<String, String> pars = new HashMap<>();
@@ -130,7 +135,7 @@ public class Server extends HttpServlet {
 		}
 	}
 */
-	@Override
+/*	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 		HashMap<String, String> pars = getPars(req);
 		String action = pars.get("action");
@@ -152,7 +157,7 @@ public class Server extends HttpServlet {
 		PrintWriter pw = res.getWriter();
 		pw.close();
 	}
-
+*/
 /*	@Override
 	public void doPut(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
 		HttpSession session = req.getSession();
@@ -244,8 +249,6 @@ public class Server extends HttpServlet {
 
 	@Override
 	public void doPost(HttpServletRequest req, HttpServletResponse res) {
-		assert connectionEstablished;
-
 		HttpSession session = req.getSession();
 		boolean sessionIsNew = session.isNew();
 
