@@ -2,6 +2,7 @@ import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.Socket;
 import java.net.URL;
 
 /**
@@ -12,8 +13,9 @@ public class Sender {
     {
         URL url = new URL("http://localhost:8080");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
+        Socket sct = new Socket("localhost",8080);
         con.setRequestMethod("POST");
-        String prm = "name=Pavel";
+        String prm = "name=Pavel&listen_port="+sct.getLocalPort();
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
         os.writeBytes(prm);
