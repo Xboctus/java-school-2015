@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="1.0"
+             xmlns="http://java.sun.com/xml/ns/persistence">
+    <persistence-unit name="scheduler">
+        <jta-data-source>java:app/jdbc/mysqlschdb</jta-data-source>
+        <class>sschedulerweb.ejb.SchUser</class>
+        <class>sschedulerweb.ejb.SchEvent</class>
+        <properties>
+            <property name="hibernate.dialect"  value="org.hibernate.dialect.HSQLDialect"/>
+        </properties>
+    </persistence-unit>
+</persistence>

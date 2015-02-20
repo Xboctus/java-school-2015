@@ -1,0 +1,76 @@
+* {
+    font-family: serif;
+}
+
+.header {
+    height: 60px;
+    border-bottom: solid;
+    border-width: 2px;
+    background-color: lavender;
+    padding: 10px;
+    text-align: right;
+    font-size: 20px;
+    margin-bottom: 30px;
+}
+
+.header div {
+    position: relative;
+    top: 60%;
+}
+
+.login {
+    margin-left: 33%;
+    width: 33%;
+    text-align: right;
+}
+
+.field1 {
+    width: 70%;
+}
+
+.footer {
+    position : absolute;
+    width: 100%;
+    bottom: 0;
+    padding-bottom: 5px;
+    background-color: lavender;
+    text-align: center;
+}
+
+.addUser {
+    margin-left: 33%;
+    width: 33%;
+    text-align: right;
+}
+
+.modifyUser{
+    margin-left: 33%;
+    width: 33%;
+    text-align: right;
+}
+
+.copyEvent{
+    margin-left: 25%;
+    width: 50%;
+    text-align: right;
+}
+
+.main{
+    margin-left: 10%;
+    width: 80%;
+}
+
+.menu{
+    width: 20%;
+    position: relative;
+    left: 5px;
+    text-align: left;
+    float: left;
+}
+
+#eventTable{
+    width: 60%;
+    position: absolute;
+    right: 10px;
+    float: left;
+}

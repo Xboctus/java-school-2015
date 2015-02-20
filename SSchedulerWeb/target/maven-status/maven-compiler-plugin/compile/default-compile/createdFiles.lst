@@ -1,0 +1,5 @@
+sschedulerweb/ejb/SchedulerBeanRemote.class
+sschedulerweb/ejb/SchEvent.class
+sschedulerweb/ejb/SchedulerBean.class
+sschedulerweb/ejb/SchUser.class
+sschedulerweb/SchedulerServlet.class
