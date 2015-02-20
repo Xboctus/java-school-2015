@@ -4,6 +4,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.sql.*;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.TimeZone;
 
 import javax.servlet.ServletContext;
@@ -299,6 +300,144 @@ public class Test {
             }
             else
                 return Error.NO_SUCH_USER;
+        }
+        catch (Exception e)
+        {
+            ;
+        }
+        finally {
+            try
+            {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (stmt != null) {
+                    stmt.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                System.err.println("Error: " + ex.getMessage());
+            }
+        }
+        return Error.NO_ERROR;
+    }
+
+
+    public static User ShowInfo(String login)
+    {
+        try
+        {
+            stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT userID, timezone, active FROM Users WHERE name = " + login);
+            if (rs.next())
+            {
+                int userID = rs.getInt(1);
+                String timezone = rs.getNString(2);
+                boolean active = rs.getBoolean(3);
+                User currentUser = new User(login, TimeZone.getTimeZone(timezone), active);
+                rs = stmt.executeQuery("SELECT dtime, msg FROM Evnts WHERE userID = "+userID);
+                while (rs.next())
+                {
+                    String dtime = rs.getNString(1);
+                    String msg = rs.getNString(2);
+                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+                    java.util.Date datetime = formatter.parse(dtime);
+                    currentUser.AddEvent(msg, datetime, false);
+                }
+                return currentUser;
+            }
+        }
+        catch (Exception e)
+        {
+            ;
+        }
+        finally {
+            try
+            {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (stmt != null) {
+                    stmt.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                System.err.println("Error: " + ex.getMessage());
+            }
+        }
+        User empty = new User();
+        return empty;
+    }
+
+
+    public static ArrayList<User> users = new ArrayList<User>();
+
+    public static Error LoadingUserInfo(String login)
+    {
+        try
+        {
+            stmt = con.createStatement();
+            ResultSet rs = stmt.executeQuery("SELECT userID, timezone, active FROM Users WHERE name = " + login);
+            if (rs.next())
+            {
+                int userID = rs.getInt(1);
+                String timezone = rs.getNString(2);
+                boolean active = rs.getBoolean(3);
+                User currentUser = new User(login, TimeZone.getTimeZone(timezone), active);
+                users.add(currentUser);
+                rs = stmt.executeQuery("SELECT dtime, msg FROM Evnts WHERE userID = "+userID);
+                while (rs.next())
+                {
+                    String dtime = rs.getNString(1);
+                    String msg = rs.getNString(2);
+                    SimpleDateFormat formatter = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
+                    java.util.Date datetime = formatter.parse(dtime);
+                    currentUser.AddEvent(msg, datetime, true);
+                }
+            }
+            else
+                return Error.NO_SUCH_USER;
+        }
+        catch (Exception e)
+        {
+            ;
+        }
+        finally {
+            try
+            {
+                if (rs != null) {
+                    rs.close();
+                }
+                if (stmt != null) {
+                    stmt.close();
+                }
+                if (con != null) {
+                    con.close();
+                }
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+                System.err.println("Error: " + ex.getMessage());
+            }
+        }
+        return Error.NO_ERROR;
+    }
+
+
+    public static Error ClearUserInfo(String login)
+    {
+        try
+        {
+            for (int i = 0; i < users.size(); i++)
+                if (login.equals(users.get(i).getName())) {
+                    users.get(i).RemoveEvent();
+                    break;
+                }
         }
         catch (Exception e)
         {
