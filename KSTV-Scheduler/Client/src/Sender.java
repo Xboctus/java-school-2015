@@ -17,7 +17,7 @@ public class Sender {
         URL url = new URL("http://localhost:8080/Server/hello");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
         con.setRequestMethod("POST");
-        String prm = "action=test&login=Pavel&listen_port="+nsct;
+        String prm = "action=test&login=Pavel";
         System.out.println(nsct);
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
@@ -29,12 +29,16 @@ public class Sender {
         BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
         String inputLine;
         StringBuffer response = new StringBuffer();
-
-        while ((inputLine = in.readLine()) != null) {
+        String res = in.readLine();
+        //String id = in.readLine();
+        String soc = in.readLine();
+        /*while ((inputLine = in.readLine()) != null) {
             response.append(inputLine);
         }
-        in.close();
-        System.out.println(response.toString());
+        in.close();*/
+        System.out.println(res);
+        System.out.println(soc);
+        //System.out.println(response.toString());
         return responseCode;
     }
     public static int create(int nsct, String login, String pass, String zone) throws Exception

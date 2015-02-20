@@ -47,7 +47,7 @@ public class Login extends JFrame {
         db.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                if (t1.getText().trim().length() == 0)
+                /*if (t1.getText().trim().length() == 0)
                     JOptionPane.showMessageDialog(jd, "Введите имя пользователя");
                 else {
                     if (t3.getText().trim().length() == 0)
@@ -78,6 +78,12 @@ public class Login extends JFrame {
                         } catch (Exception ex) {
                             JOptionPane.showMessageDialog(jd, "Ошибка соединения");
                         }
+                }*/
+                try{
+                    Sender.message(sct.getLocalPort());
+                }catch (Exception ex)
+                {
+                    System.out.println(ex);
                 }
 
             }
