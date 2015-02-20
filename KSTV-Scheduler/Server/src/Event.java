@@ -14,13 +14,15 @@ public class Event extends TimerTask {
     private User user;
     public static boolean show = false;
 
-    public Event (String t, Date d, User u)
+    public Event (String t, Date d, boolean time, User u)
     {
         text = t;
         date = d;
         user = u;
-        timer = new Timer();
-        timer.schedule(this, date);
+        if(time) {
+            timer = new Timer();
+            timer.schedule(this, date);
+        }
     }
 
     public void run()

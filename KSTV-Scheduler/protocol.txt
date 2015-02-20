@@ -11,9 +11,9 @@
 Клиент:
 	action = test
 	login = <login>
-	listen_port = <port> - прослушиваемый клиентом порт
 Сервер:
 	result = <result>
+	listen_port = <port> - прослушиваемый сервером порт
 <result>:
 	yes - логин существует
 	no - логин не существует

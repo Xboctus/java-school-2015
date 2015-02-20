@@ -40,9 +40,9 @@ public class User {
         timezone = t;
         status = s;
     }
-    public void AddEvent(String t, Date d)
+    public void AddEvent(String t, Date d, boolean time)
     {
-        event.add(new Event(t, d, this));
+        event.add(new Event(t, d, time, this));
     }
 
     public void ShowUser()
@@ -55,15 +55,15 @@ public class User {
             event.get(i).ShowEvent();
     }
 
-    public void RemoveEvent(String text)
+    public void RemoveEvent()
     {
         for (int i = 0; i < event.size(); i++)
-            if (text.equals(event.get(i).getText()))
-            {
-                event.get(i).deleteTimer();
-                event.remove(i);
-                break;
-            }
+            //if (text.equals(event.get(i).getText()))
+        {
+            event.get(i).deleteTimer();
+            event.remove(i);
+            break;
+        }
     }
 
     public Event getEvent(String text)
