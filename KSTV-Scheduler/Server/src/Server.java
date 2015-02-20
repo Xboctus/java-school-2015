@@ -85,9 +85,9 @@ public class Server extends HttpServlet {
 			return Response.INTERNAL_ERROR_RESPONSE;
 		}
 
-		String resultKv = "result=" + (testResult.exists ? "yes" : "no");
-		String listerPortKv = "listen_port=" + testResult.serverPort;
-		String body = resultKv + "&" + listerPortKv;
+		String resultKv = (testResult.exists ? "yes" : "no");
+		String listerPortKv = Integer.toString(testResult.serverPort);
+		String body = resultKv + " " + listerPortKv;
 
 		if (testResult.error == ServerHandler.HandlingError.NO_SUCH_USER) {
 			return new Response(body, SC_NO_SUCH_USER);
