@@ -81,16 +81,18 @@ public class Server extends HttpServlet {
 		}
 
 		ServerHandler.TestResult testResult = ServerHandler.test(login, sessionId);
-		if (testResult.error == ServerHandler.HandlingError.NO_SUCH_USER) {
-			return new Response(null, SC_NO_SUCH_USER);
-		}
 		if (testResult.error == ServerHandler.HandlingError.INTERNAL_ERROR) {
 			return Response.INTERNAL_ERROR_RESPONSE;
 		}
 
 		String resultKv = "result=" + (testResult.exists ? "yes" : "no");
 		String listerPortKv = "listen_port=" + testResult.serverPort;
-		return new Response(resultKv + "&" + listerPortKv, HttpServletResponse.SC_OK);
+		String body = resultKv + "&" + listerPortKv;
+
+		if (testResult.error == ServerHandler.HandlingError.NO_SUCH_USER) {
+			return new Response(body, SC_NO_SUCH_USER);
+		}
+		return new Response(body, HttpServletResponse.SC_OK);
 	}
 
 	private static void sendResponse(HttpServletResponse res, Response response) {
