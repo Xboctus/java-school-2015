@@ -34,7 +34,8 @@
 	action = start_session
 	login = <login> - логин пользователя
 	password = <password> - пароль этого пользователя
-	listen_port = <port> - прослушиваемый клиентом порт
+Сервер:
+	listen_port = <port> - прослушиваемый сервером порт
 
 = Окончание сессии =
 Метод: PUT
@@ -49,7 +50,8 @@
 	password = <password> - пароль этого пользователя
 	timezone = <timezone>
 	[active = <active>] - по умолчанию true
-	listen_port = <port> - прослушиваемый клиентом порт
+Сервер:
+	listen_port = <port> - прослушиваемый сервером порт
 Коды состояния:
 	450 - такой логин уже существует
 

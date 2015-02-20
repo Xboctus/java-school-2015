@@ -21,4 +21,12 @@ public final class SyntaxChecker {
 		}
 		return true;
 	}
+
+	public static boolean checkTimeZone(String timeZone) {
+		return true; // FIXME
+	}
+
+	public static boolean checkActive(String active) {
+		return active.equals("true") || active.equals("false");
+	}
 }

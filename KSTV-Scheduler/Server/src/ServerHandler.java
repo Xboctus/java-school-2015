@@ -12,11 +12,13 @@ public class ServerHandler {
 	public enum HandlingError {
 		NO_ERROR,
 		NO_SUCH_USER,
+		USER_EXISTS,
 		INTERNAL_ERROR,
 	}
 
 	private static Connection dbCon;
 	private static PreparedStatement testStmnt;
+	private static PreparedStatement createUserStmnt;
 
 	public static void establishDbConnection(ServletContext sc) throws Exception {
 		Path conFile = Paths.get(sc.getRealPath("/WEB-INF/connection.txt"));
@@ -38,6 +40,13 @@ public class ServerHandler {
 			dbCon.close(); // FIXME: if throws, e is lost
 			throw e;
 		}
+
+		try {
+			createUserStmnt = dbCon.prepareStatement("INSERT INTO Users (name, pass, timezone, active) values (?, ?, ?, ?)");
+		} catch (SQLException e) {
+			dbCon.close(); // FIXME: if throws, e is lost
+			throw e;
+		}
 	}
 
 	public static void closeDbConnection() throws SQLException {
@@ -45,7 +54,11 @@ public class ServerHandler {
 		try {
 			testStmnt.close();
 		} finally {
-			dbCon.close(); // FIXME: if throws, previously thrown exception is lost
+			try {
+				createUserStmnt.close(); // FIXME: if throws, previously thrown exception is lost
+			} finally {
+				dbCon.close(); // FIXME: if throws, previously thrown exceptions are lost
+			}
 		}
 	}
 
@@ -65,7 +78,7 @@ public class ServerHandler {
 				}
 				String sessionId;
 				try (Scanner sc = new Scanner(socket.getInputStream())) {
-					sessionId = sc.next();
+					sessionId = sc.nextLine();
 				} catch (IOException e) {
 					try {
 						socket.close();
@@ -143,7 +156,7 @@ public class ServerHandler {
 				return;
 			}
 			PrintWriter pw = new PrintWriter(outs);
-			pw.print("result=" + (notEmpty ? "yes" : "no"));
+			pw.print("result=" + (notEmpty ? "yes" : "no") + "\n");
 			pw.flush();
 		}
 	}
@@ -169,6 +182,47 @@ public class ServerHandler {
 
 		HandlingError error = notEmpty ? HandlingError.NO_ERROR : HandlingError.NO_SUCH_USER;
 		TestResult res = new TestResult(error, notEmpty);
+		res.serverPort = serverSocket.getLocalPort();
+		return res;
+	}
+
+	public static class CreateUserResult {
+		public HandlingError error;
+		public int serverPort;
+
+		public CreateUserResult(HandlingError error) {
+			this.error = error;
+		}
+	}
+
+	public static CreateUserResult createUser(String login, String password, TimeZone timeZone, boolean active) {
+		try {
+			testStmnt.setString(1, login);
+		} catch (SQLException e) {
+			return new CreateUserResult(HandlingError.INTERNAL_ERROR);
+		}
+
+		boolean notEmpty;
+		try (ResultSet rs = testStmnt.executeQuery()) {
+			notEmpty = rs.next();
+		} catch (SQLException e) {
+			return new CreateUserResult(HandlingError.INTERNAL_ERROR);
+		}
+
+		if (notEmpty) {
+			return new CreateUserResult(HandlingError.USER_EXISTS);
+		}
+
+		try {
+			createUserStmnt.setString(1, login);
+			createUserStmnt.setString(2, password);
+			createUserStmnt.setString(3, timeZone.getDisplayName());
+			createUserStmnt.setBoolean(4, active);
+		} catch (SQLException e) {
+			return new CreateUserResult(HandlingError.INTERNAL_ERROR);
+		}
+
+		CreateUserResult res = new CreateUserResult(HandlingError.NO_ERROR);
 		res.serverPort = serverSocket.getLocalPort();
 		return res;
 	}
