@@ -62,57 +62,6 @@ public class ServerHandler {
 		}
 	}
 
-	private static class ConnectionHandler extends Thread {
-		public ConnectionHandler() {
-			super("Connection handler");
-		}
-
-		@Override
-		public void run() {
-			while (connectionsAcceptable.get()) {
-				Socket socket;
-				try {
-					socket = serverSocket.accept();
-				} catch (IOException e) {
-					continue;
-				}
-				String sessionId;
-				try (Scanner sc = new Scanner(socket.getInputStream())) {
-					sessionId = sc.nextLine();
-				} catch (IOException e) {
-					try {
-						socket.close();
-					} catch (IOException e2) {
-						continue;
-					}
-					continue;
-				}
-				clientSockets.put(sessionId, socket);
-			}
-		}
-	}
-
-	private static ServerSocket serverSocket;
-	private static AtomicBoolean connectionsAcceptable;
-	private static ConnectionHandler connectionHandler;
-	private static HashMap<String /*sessionId*/, Socket> clientSockets = new HashMap<>();
-
-	public static void openServerSocket() throws IOException {
-		serverSocket = new ServerSocket(0);
-		connectionsAcceptable = new AtomicBoolean(true);
-		connectionHandler = new ConnectionHandler();
-		connectionHandler.start();
-	}
-
-	public static void closeServerSocket() throws IOException, InterruptedException {
-		connectionsAcceptable.set(false);
-		try {
-			serverSocket.close();
-		} finally {
-			connectionHandler.join(); // FIXME: if throws, previously thrown exception is lost
-		}
-	}
-
 	private static Timer timer;
 
 	public static void startTimer() {
@@ -145,7 +94,7 @@ public class ServerHandler {
 
 		@Override
 		public void run() {
-			Socket socket = clientSockets.get(sessionId);
+			Socket socket = SocketInterface.clientSockets.get(sessionId);
 			if (socket == null) {
 				return;
 			}
@@ -182,7 +131,7 @@ public class ServerHandler {
 
 		HandlingError error = notEmpty ? HandlingError.NO_ERROR : HandlingError.NO_SUCH_USER;
 		TestResult res = new TestResult(error, notEmpty);
-		res.serverPort = serverSocket.getLocalPort();
+		res.serverPort = SocketInterface.getEventPort();
 		return res;
 	}
 
@@ -223,7 +172,7 @@ public class ServerHandler {
 		}
 
 		CreateUserResult res = new CreateUserResult(HandlingError.NO_ERROR);
-		res.serverPort = serverSocket.getLocalPort();
+		res.serverPort = SocketInterface.getEventPort();
 		return res;
 	}
 }

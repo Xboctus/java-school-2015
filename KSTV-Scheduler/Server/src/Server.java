@@ -1,6 +1,7 @@
 import java.io.*;
 import java.util.HashMap;
 import java.util.TimeZone;
+
 import javax.servlet.*;
 import javax.servlet.http.*;
 
@@ -11,7 +12,7 @@ public class Server extends HttpServlet {
 		try {
 			ServerHandler.establishDbConnection(getServletContext());
 			try {
-				ServerHandler.openServerSocket();
+				SocketInterface.openServerSocket();
 			} catch (Exception e) {
 				ServerHandler.closeDbConnection();
 				throw e;
@@ -28,7 +29,7 @@ public class Server extends HttpServlet {
 	public void destroy() {
 		ServerHandler.stopTimer();
 		try {
-			ServerHandler.closeServerSocket();
+			SocketInterface.closeServerSocket();
 		} catch (Exception e) {
 			getServletContext().log("Exception during destroy()", e);
 		}
