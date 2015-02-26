@@ -1,26 +1,28 @@
+import java.util.*;
 import java.io.*;
-import java.util.HashMap;
-import java.util.TimeZone;
+import java.sql.*;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
 
 @SuppressWarnings("serial")
 public class Server extends HttpServlet {
+	private ServletContext servletContext;
+
 	@Override
 	public void init() throws UnavailableException {
+		servletContext = getServletContext();
 		try {
-			ServerHandler.establishDbConnection(getServletContext());
-			try {
-				SocketInterface.openServerSocket();
-			} catch (Exception e) {
-				ServerHandler.closeDbConnection();
-				throw e;
-			}
-		} catch (Exception cause) {
-			UnavailableException ue = new UnavailableException("Initialization error");
-			ue.initCause(cause);
+			DbConnector.init(servletContext);
+		} catch (Exception e) {
+			UnavailableException ue = new UnavailableException("DbConnector.init() failed");
+			ue.initCause(e);
 			throw ue;
+		}
+		try {
+			SocketInterface.init();
+		} catch (Exception e) {
+			servletContext.log("SocketInterface.init() failed", e);
 		}
 		ServerHandler.startTimer();
 	}
@@ -29,14 +31,14 @@ public class Server extends HttpServlet {
 	public void destroy() {
 		ServerHandler.stopTimer();
 		try {
-			SocketInterface.closeServerSocket();
+			SocketInterface.destroy();
 		} catch (Exception e) {
-			getServletContext().log("Exception during destroy()", e);
+			servletContext.log("SocketInterface.destroy() failed", e);
 		}
 		try {
-			ServerHandler.closeDbConnection();
-		} catch (Exception e) {
-			getServletContext().log("Exception during destroy()", e);
+			DbConnector.destroy();
+		} catch (SQLException e) {
+			servletContext.log("DbConnector.destroy() failed", e);
 		}
 	}
 
@@ -62,34 +64,76 @@ public class Server extends HttpServlet {
 	}
 
 	private static final int SC_USER_EXISTS = 450;
-	private static final int SC_NO_SUCH_USER = 451;
+//	private static final int SC_NO_SUCH_USER = 451;
 
-	private static class Response {
-		public String body;
-		public int statusCode;
+	private static final char MessagePartsSeparator = '\u001F';
+	private static final char MessageTerminator = '\u001E';
 
-		public Response(String body, int statusCode) {
-			this.body = body;
-			this.statusCode = statusCode;
+	public static void printMessage(String[] parts, PrintWriter writer) {
+		for (int i = 0; i < parts.length - 1; ++i) {
+			writer.print(parts[i]);
+			writer.print(MessagePartsSeparator);
 		}
-
-		public static final Response BAD_REQUEST_RESPONSE = new Response(null, HttpServletResponse.SC_BAD_REQUEST);
-		public static final Response INTERNAL_ERROR_RESPONSE = new Response(null, HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+		writer.print(parts[parts.length - 1]);
+		writer.print(MessageTerminator);
+		writer.flush();
 	}
 
-	private static void sendResponse(HttpServletResponse res, Response response) {
-		res.setStatus(response.statusCode);
-		if (response.body != null) {
+	private static class Response {
+		public int statusCode;
+		public String[] parts;
+
+		public Response(int statusCode, String[] parts) {
+			this.statusCode = statusCode;
+			this.parts = parts;
+		}
+
+		public Response(int statusCode) {
+			this.statusCode = statusCode;
+			this.parts = null;
+		}
+
+		public Response(String[] parts) {
+			this.statusCode = HttpServletResponse.SC_OK;
+			this.parts = parts;
+		}
+
+		public static final Response BAD_REQUEST_RESPONSE = new Response(HttpServletResponse.SC_BAD_REQUEST);
+		public static final Response INTERNAL_ERROR_RESPONSE = new Response(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+		public static final Response NOT_FOUND_RESPONSE = new Response(HttpServletResponse.SC_NOT_FOUND);
+
+		public void send(HttpServletResponse res) {
+			res.setStatus(statusCode);
 			res.setContentType("text/plain");
-			try (PrintWriter pw = res.getWriter()) {
-				pw.print(response.body);
-				pw.flush();
-			} catch (IOException e) {
-				res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			if (parts != null) {
+				try (PrintWriter pw = res.getWriter()) {
+					printMessage(parts, pw);
+				} catch (IOException e) {
+					res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+				}
 			}
 		}
 	}
 
+	@Override
+	public void doGet(HttpServletRequest req, HttpServletResponse res) {
+		Response response;
+
+		String path = req.getPathInfo();
+
+		if (path == null) {
+			response = Response.INTERNAL_ERROR_RESPONSE;
+		} else {
+			if (path.equals("/event_port")) {
+				response = new Response(new String[] {Integer.toString(SocketInterface.getEventPort())});
+			} else {
+				response = Response.NOT_FOUND_RESPONSE;
+			}
+		}
+
+		response.send(res);
+	}
+/*
 	private static Response serveTest(HashMap<String, String> pars, String sessionId) {
 		String login = pars.get("login");
 		if (login == null || !SyntaxChecker.checkLogin(login)) {
@@ -110,7 +154,7 @@ public class Server extends HttpServlet {
 		}
 		return new Response(body, HttpServletResponse.SC_OK);
 	}
-
+*/
 	@Override
 	public void doPost(HttpServletRequest req, HttpServletResponse res) {
 		Response response;
@@ -124,15 +168,15 @@ public class Server extends HttpServlet {
 			if (action == null) {
 				response = Response.BAD_REQUEST_RESPONSE;
 			} else switch (action) {
-			case "test":
+/*			case "test":
 				response = serveTest(pars, req.getSession().getId());
 				break;
-			default:
+*/			default:
 				response = Response.BAD_REQUEST_RESPONSE;
 			}
 		}
 
-		sendResponse(res, response);
+		response.send(res);
 	}
 
 	private static Response serveCreateUser(HashMap<String, String> pars, String sessionId) {
@@ -161,13 +205,13 @@ public class Server extends HttpServlet {
 			return Response.INTERNAL_ERROR_RESPONSE;
 		}
 
-		String listerPort = Integer.toString(result.serverPort);
-		String body = listerPort;
+		String listenPort = Integer.toString(result.serverPort);
+		String[] body = new String[] {listenPort};
 
 		if (result.error == ServerHandler.HandlingError.USER_EXISTS) {
-			return new Response(body, SC_USER_EXISTS);
+			return new Response(SC_USER_EXISTS, body);
 		}
-		return new Response(body, HttpServletResponse.SC_OK);
+		return new Response(HttpServletResponse.SC_OK, body);
 	}
 
 	@Override
@@ -191,6 +235,6 @@ public class Server extends HttpServlet {
 			}
 		}
 
-		sendResponse(res, response);
+		response.send(res);
 	}
 }

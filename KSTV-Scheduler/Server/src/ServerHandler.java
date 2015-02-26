@@ -1,65 +1,14 @@
 import java.io.*;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
-import javax.servlet.ServletContext;
-
-public class ServerHandler {
+public final class ServerHandler {
 	public enum HandlingError {
 		NO_ERROR,
 		NO_SUCH_USER,
 		USER_EXISTS,
 		INTERNAL_ERROR,
-	}
-
-	private static Connection dbCon;
-	private static PreparedStatement testStmnt;
-	private static PreparedStatement createUserStmnt;
-
-	public static void establishDbConnection(ServletContext sc) throws Exception {
-		Path conFile = Paths.get(sc.getRealPath("/WEB-INF/connection.txt"));
-		String driverStr;
-		String conStr;
-		try (BufferedReader br = Files.newBufferedReader(conFile, StandardCharsets.UTF_8)) {
-			driverStr = br.readLine();
-			conStr = br.readLine();
-		} catch (IOException e) {
-			throw e;
-		}
-
-		Class.forName(driverStr);
-		dbCon = DriverManager.getConnection("jdbc:" + conStr);
-
-		try {
-			testStmnt = dbCon.prepareStatement("SELECT * FROM Users WHERE name = ?");
-		} catch (SQLException e) {
-			dbCon.close(); // FIXME: if throws, e is lost
-			throw e;
-		}
-
-		try {
-			createUserStmnt = dbCon.prepareStatement("INSERT INTO Users (name, pass, timezone, active) values (?, ?, ?, ?)");
-		} catch (SQLException e) {
-			dbCon.close(); // FIXME: if throws, e is lost
-			throw e;
-		}
-	}
-
-	public static void closeDbConnection() throws SQLException {
-		assert dbCon != null && testStmnt != null;
-		try {
-			testStmnt.close();
-		} finally {
-			try {
-				createUserStmnt.close(); // FIXME: if throws, previously thrown exception is lost
-			} finally {
-				dbCon.close(); // FIXME: if throws, previously thrown exceptions are lost
-			}
-		}
 	}
 
 	private static Timer timer;
@@ -71,7 +20,7 @@ public class ServerHandler {
 	public static void stopTimer() {
 		timer.cancel();
 	}
-
+/*
 	public static class TestResult {
 		public HandlingError error;
 		public boolean exists;
@@ -112,16 +61,15 @@ public class ServerHandler {
 
 	public static TestResult test(String login, String sessionId) {
 		assert SyntaxChecker.checkLogin(login);
-		assert dbCon != null;
 
 		try {
-			testStmnt.setString(1, login);
+			DbConnector.ActionStatement.TEST.statement.setString(1, login);
 		} catch (SQLException e) {
 			return new TestResult(HandlingError.INTERNAL_ERROR, false);
 		}
 
 		boolean notEmpty;
-		try (ResultSet rs = testStmnt.executeQuery()) {
+		try (ResultSet rs = DbConnector.ActionStatement.TEST.statement.executeQuery()) {
 			notEmpty = rs.next();
 		} catch (SQLException e) {
 			return new TestResult(HandlingError.INTERNAL_ERROR, false);
@@ -134,7 +82,7 @@ public class ServerHandler {
 		res.serverPort = SocketInterface.getEventPort();
 		return res;
 	}
-
+*/
 	public static class CreateUserResult {
 		public HandlingError error;
 		public int serverPort;
@@ -146,13 +94,13 @@ public class ServerHandler {
 
 	public static CreateUserResult createUser(String login, String password, TimeZone timeZone, boolean active) {
 		try {
-			testStmnt.setString(1, login);
+			DbConnector.ActionStatement.TEST.statement.setString(1, login);
 		} catch (SQLException e) {
 			return new CreateUserResult(HandlingError.INTERNAL_ERROR);
 		}
 
 		boolean notEmpty;
-		try (ResultSet rs = testStmnt.executeQuery()) {
+		try (ResultSet rs = DbConnector.ActionStatement.TEST.statement.executeQuery()) {
 			notEmpty = rs.next();
 		} catch (SQLException e) {
 			return new CreateUserResult(HandlingError.INTERNAL_ERROR);
@@ -163,10 +111,10 @@ public class ServerHandler {
 		}
 
 		try {
-			createUserStmnt.setString(1, login);
-			createUserStmnt.setString(2, password);
-			createUserStmnt.setString(3, timeZone.getDisplayName());
-			createUserStmnt.setBoolean(4, active);
+			DbConnector.ActionStatement.CREATE_USER.statement.setString(1, login);
+			DbConnector.ActionStatement.CREATE_USER.statement.setString(2, password);
+			DbConnector.ActionStatement.CREATE_USER.statement.setString(3, timeZone.getDisplayName());
+			DbConnector.ActionStatement.CREATE_USER.statement.setBoolean(4, active);
 		} catch (SQLException e) {
 			return new CreateUserResult(HandlingError.INTERNAL_ERROR);
 		}
