@@ -4,7 +4,13 @@ import javax.swing.text.MaskFormatter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.ServerSocket;
+import java.net.URL;
+import java.util.Scanner;
 import java.util.TimeZone;
 
 /**
@@ -15,7 +21,7 @@ public class Login extends JFrame {
     public Login(ServerSocket sct)
     {
         setTitle("Login");
-        setSize(450, 300);
+        setSize(450, 350);
         setResizable(false);
         setLocationRelativeTo(null);
         this.sct = sct;
@@ -26,6 +32,9 @@ public class Login extends JFrame {
         JLabel l1 = new JLabel("Name");
         final JLabel l2 = new JLabel("Timezone");
         JLabel l3 = new JLabel("Password");
+        final JLabel l4 = new JLabel("Active");
+        final JCheckBox cb = new JCheckBox();
+        cb.setSelected(true);
         String formatter = "?";
         for (int i = 0; i < 254; i++)
             formatter += "*";
@@ -36,18 +45,41 @@ public class Login extends JFrame {
         mf.setValidCharacters("+-0123456789");
         final JFormattedTextField t2 = new JFormattedTextField(mf);
         final JTextField t3 = new JTextField();
-        final JPanel panel = new JPanel(new GridLayout(3, 2, 30, 30));
+        final JPanel panel = new JPanel(new GridLayout(4, 2, 30, 30));
         panel.setPreferredSize(new Dimension(jd.getWidth() / 2, jd.getHeight()));
         panel.add(l1);
         panel.add(t1);
         panel.add(l3);
         panel.add(t3);
+        String soc="";
+        try {
+            URL url = new URL("http://localhost:8080/Server/hello/event_port");
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod("GET");
+            //String prm = "action=event_port";
+            //con.setDoOutput(true);
+            //DataOutputStream os = new DataOutputStream(con.getOutputStream());
+            //os.writeBytes(prm);
+            //os.flush();
+            //os.close();
+            int responseCode = con.getResponseCode();
+            System.out.println(responseCode);
+            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+            String inputLine;
+            StringBuffer response = new StringBuffer();
+            Scanner sc = new Scanner(in);
+            soc = sc.next();
+        }catch(Exception e)
+        {
+            System.out.println(e.getMessage());
+        }
+        System.out.print(soc);
         final StringBuilder f = new StringBuilder("0");
         JButton db = new JButton("OK");
         db.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                /*if (t1.getText().trim().length() == 0)
+                if (t1.getText().trim().length() == 0)
                     JOptionPane.showMessageDialog(jd, "Введите имя пользователя");
                 else {
                     if (t3.getText().trim().length() == 0)
@@ -77,13 +109,8 @@ public class Login extends JFrame {
                             }
                         } catch (Exception ex) {
                             JOptionPane.showMessageDialog(jd, "Ошибка соединения");
+                            System.out.print(ex);
                         }
-                }*/
-                try{
-                    Sender.message(sct.getLocalPort());
-                }catch (Exception ex)
-                {
-                    System.out.println(ex);
                 }
 
             }
@@ -96,6 +123,8 @@ public class Login extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 panel.add(l2);
                 panel.add(t2);
+                panel.add(l4);
+                panel.add(cb);
                 panel.repaint();
                 f.setCharAt(0,'1');
                 panel.validate();
@@ -107,6 +136,8 @@ public class Login extends JFrame {
             public void actionPerformed(ActionEvent e) {
                 panel.remove(l2);
                 panel.remove(t2);
+                panel.remove(l4);
+                panel.remove(cb);
                 panel.repaint();
                 f.setCharAt(0,'0');
                 panel.validate();

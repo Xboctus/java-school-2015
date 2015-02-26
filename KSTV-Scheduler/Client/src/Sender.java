@@ -1,24 +1,19 @@
 import javax.swing.*;
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.URL;
+import java.io.*;
+import java.net.*;
 import java.text.SimpleDateFormat;
+import java.util.Scanner;
 
 /**
  * Created by Pavel on 17.02.2015.
  */
 public class Sender {
-    public static int message(int nsct) throws Exception
+    public static int message(int nsct, JTextArea t) throws Exception
     {
         URL url = new URL("http://localhost:8080/Server/hello");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
         con.setRequestMethod("POST");
         String prm = "action=test&login=Pavel";
-        System.out.println(nsct);
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
         os.writeBytes(prm);
@@ -29,9 +24,18 @@ public class Sender {
         BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
         String inputLine;
         StringBuffer response = new StringBuffer();
-        String res = in.readLine();
+        Scanner sc = new Scanner(in);
+        String res = sc.next();
         //String id = in.readLine();
-        String soc = in.readLine();
+        String soc = sc.next();
+        Socket sock = new Socket(InetAddress.getByName("localhost"),Integer.parseInt(soc));
+        PrintWriter w = new PrintWriter(sock.getOutputStream());
+        String s = con.getHeaderField("Set-Cookie");
+        System.out.print(s.substring(11, 11+32));
+        w.print(s.substring(11, 11+32)+ "\n");
+        w.flush();
+
+        Listener l = new Listener(sock);
         /*while ((inputLine = in.readLine()) != null) {
             response.append(inputLine);
         }
@@ -46,7 +50,7 @@ public class Sender {
         URL url = new URL("http://localhost:8080/Server/hello");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
         con.setRequestMethod("PUT");
-        String prm = "action=create_user&login="+login+"&password="+pass+"&timezone="+zone+"&listen_port"+nsct;
+        String prm = "action=create_user&login="+login+"&password="+pass+"&timezone="+zone;
         System.out.println(nsct);
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
@@ -55,6 +59,22 @@ public class Sender {
         os.close();
         int responseCode = con.getResponseCode();
         System.out.println(responseCode);
+        if(responseCode == 200) {
+            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+            Scanner sc = new Scanner(in);
+            //String res = sc.next();
+            //String id = in.readLine();
+            String soc = sc.next();
+            Socket sock = new Socket(InetAddress.getByName("localhost"), Integer.parseInt(soc));
+            PrintWriter w = new PrintWriter(sock.getOutputStream());
+            String s = con.getHeaderField("Set-Cookie");
+            System.out.print(s.substring(11, 11 + 32));
+            w.print(s.substring(11, 11 + 32) + "\n");
+            w.flush();
+
+            Listener l = new Listener(sock);
+        }
+
         return responseCode;
 
     }
