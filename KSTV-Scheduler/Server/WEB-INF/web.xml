@@ -5,6 +5,6 @@
 	</servlet>
 	<servlet-mapping>
 		<servlet-name>Server</servlet-name>
-		<url-pattern>/hello</url-pattern>
+		<url-pattern>/hello/*</url-pattern>
 	</servlet-mapping>
 </web-app>

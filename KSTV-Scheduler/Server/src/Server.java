@@ -82,6 +82,7 @@ public class Server extends HttpServlet {
 	private static class Response {
 		public int statusCode;
 		public String[] parts;
+		public String debug;
 
 		public Response(int statusCode, String[] parts) {
 			this.statusCode = statusCode;
@@ -105,6 +106,9 @@ public class Server extends HttpServlet {
 		public void send(HttpServletResponse res) {
 			res.setStatus(statusCode);
 			res.setContentType("text/plain");
+			if (debug != null) {
+				res.addHeader("Debug", debug);
+			}
 			if (parts != null) {
 				try (PrintWriter pw = res.getWriter()) {
 					printMessage(parts, pw);
@@ -123,11 +127,14 @@ public class Server extends HttpServlet {
 
 		if (path == null) {
 			response = Response.INTERNAL_ERROR_RESPONSE;
+			response.debug = "path is null";
 		} else {
 			if (path.equals("/event_port")) {
 				response = new Response(new String[] {Integer.toString(SocketInterface.getEventPort())});
+				response.debug = "path is " + path;
 			} else {
 				response = Response.NOT_FOUND_RESPONSE;
+				response.debug = "path is " + path;
 			}
 		}
 
