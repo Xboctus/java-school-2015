@@ -9,6 +9,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.sql.*;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -26,11 +27,11 @@ import javax.swing.tree.ExpandVetoException;
  * Created by Pavel on 12.02.2015.
  */
 public class BaseForm extends JFrame {
-    private ServerSocket sct;
+    private Socket sct;
     private String login;
     private String password;
     public static JTextArea tp = new JTextArea(1, 29);
-    public BaseForm(ServerSocket sct)
+    public BaseForm(Socket sct)
     {
         setTitle("Schedule");
         setSize(700, 500);

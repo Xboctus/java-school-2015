@@ -13,17 +13,6 @@ import java.util.Scanner;
 public class Listener extends Thread{
     private Socket sct;
     private static JTextArea ta;
-    public static void listen(Socket srvsct)
-    {
-        try{
-            //ta = tar;
-                new Listener(srvsct);
-        }catch(Exception e)
-        {
-            System.out.println(e);
-
-        }
-    }
     public Listener(Socket sct)
     {
         this.sct = sct;

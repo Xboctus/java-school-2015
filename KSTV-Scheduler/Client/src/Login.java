@@ -7,8 +7,10 @@ import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URL;
 import java.util.Scanner;
 import java.util.TimeZone;
@@ -17,14 +19,12 @@ import java.util.TimeZone;
  * Created by Pavel on 19.02.2015.
  */
 public class Login extends JFrame {
-    ServerSocket sct;
-    public Login(ServerSocket sct)
+    public Login()
     {
         setTitle("Login");
         setSize(450, 350);
         setResizable(false);
         setLocationRelativeTo(null);
-        this.sct = sct;
     }
     public void initialize() {
         final JDialog jd = new JDialog();
@@ -51,7 +51,7 @@ public class Login extends JFrame {
         panel.add(t1);
         panel.add(l3);
         panel.add(t3);
-        String soc="";
+
         try {
             URL url = new URL("http://localhost:8080/Server/hello/event_port");
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
@@ -68,101 +68,104 @@ public class Login extends JFrame {
             String inputLine;
             StringBuffer response = new StringBuffer();
             Scanner sc = new Scanner(in);
-            soc = sc.next();
+            final String soc = sc.next();
+
+            System.out.print(soc);
+            final StringBuilder f = new StringBuilder("0");
+            JButton db = new JButton("OK");
+            db.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (t1.getText().trim().length() == 0)
+                        JOptionPane.showMessageDialog(jd, "Введите имя пользователя");
+                    else {
+                        if (t3.getText().trim().length() == 0)
+                            JOptionPane.showMessageDialog(jd, "Ведите пароль");
+                        else
+                            try {
+                                if (f.toString().equals("1")) {
+                                    if (Sender.create(t1.getText().trim(),t3.getText().trim(), t2.getText().trim(),cb.isSelected())==200) {
+                                        jd.dispose();
+                                        Socket sct = new Socket("localhost",new Integer(soc));
+                                        PrintWriter w = new PrintWriter(sct.getOutputStream());
+                                        w.print("login\u001F" + t1.getText().trim() + "\u001F" + t3.getText().trim() + "\u001E");
+                                        w.flush();
+                                        final BaseForm bf = new BaseForm(sct);
+                                        bf.initialize(bf,t1.getText().trim(),t3.getText().trim());
+                                        bf.setVisible(true);
+                                        Listener ltr = new Listener(sct);
+                                    }
+                                    else
+                                        JOptionPane.showMessageDialog(jd, "Произошла ошибка");
+                                }
+                                else
+                                {
+                                    if (Sender.login(t1.getText().trim(), t3.getText().trim())==200) {
+                                        jd.dispose();
+                                        Socket sct = new Socket("localhost",new Integer(soc));
+                                        PrintWriter w = new PrintWriter(sct.getOutputStream());
+                                        w.print("login\u001F"+t1.getText().trim()+"\u001F"+t3.getText().trim()+"\u001E");
+                                        w.flush();
+                                        final BaseForm bf = new BaseForm(sct);
+                                        bf.initialize(bf,t1.getText().trim(),t3.getText().trim());
+                                        bf.setVisible(true);
+                                        Listener ltr = new Listener(sct);
+                                    }
+                                    else
+                                        JOptionPane.showMessageDialog(jd, "Проверьте правильность ввода");
+                                }
+                            } catch (Exception ex) {
+                                JOptionPane.showMessageDialog(jd, "Ошибка соединения");
+                                System.out.print(ex);
+                            }
+                    }
+
+                }
+            });
+            panel.setBorder(new EmptyBorder(20,20,20,20));
+            JPanel bpanel = new JPanel(new GridLayout(1, 2, 20, 20));
+            JButton db2 = new JButton("Регистрация");
+            db2.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    panel.add(l2);
+                    panel.add(t2);
+                    panel.add(l4);
+                    panel.add(cb);
+                    panel.repaint();
+                    f.setCharAt(0,'1');
+                    panel.validate();
+                }
+            });
+            JButton db3 = new JButton("Логин");
+            db3.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    panel.remove(l2);
+                    panel.remove(t2);
+                    panel.remove(l4);
+                    panel.remove(cb);
+                    panel.repaint();
+                    f.setCharAt(0,'0');
+                    panel.validate();
+                }
+            });
+            bpanel.add(db);
+            bpanel.add(db2);
+            bpanel.add(db3);
+            bpanel.setBorder(new EmptyBorder(20,20,20,20));
+            getContentPane().add(panel, BorderLayout.CENTER);
+            getContentPane().add(bpanel, BorderLayout.SOUTH);
         }catch(Exception e)
         {
             System.out.println(e.getMessage());
         }
-        System.out.print(soc);
-        final StringBuilder f = new StringBuilder("0");
-        JButton db = new JButton("OK");
-        db.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (t1.getText().trim().length() == 0)
-                    JOptionPane.showMessageDialog(jd, "Введите имя пользователя");
-                else {
-                    if (t3.getText().trim().length() == 0)
-                        JOptionPane.showMessageDialog(jd, "Ведите пароль");
-                    else
-                        try {
-                            if (f.toString().equals("1")) {
-                                if (Sender.create(sct.getLocalPort(),t1.getText().trim(),t3.getText().trim(), t2.getText().trim())==200) {
-                                    jd.dispose();
-                                    final BaseForm bf = new BaseForm(sct);
-                                    bf.initialize(bf,t1.getText().trim(),t3.getText().trim());
-                                    bf.setVisible(true);
-                                }
-                                else
-                                    JOptionPane.showMessageDialog(jd, "Произошла ошибка");
-                            }
-                            else
-                            {
-                                if (Sender.login(sct.getLocalPort(), t1.getText().trim(), t3.getText().trim())==200) {
-                                    jd.dispose();
-                                    final BaseForm bf = new BaseForm(sct);
-                                    bf.initialize(bf,t1.getText().trim(),t3.getText().trim());
-                                    bf.setVisible(true);
-                                }
-                                else
-                                    JOptionPane.showMessageDialog(jd, "Произошла ошибка");
-                            }
-                        } catch (Exception ex) {
-                            JOptionPane.showMessageDialog(jd, "Ошибка соединения");
-                            System.out.print(ex);
-                        }
-                }
-
-            }
-        });
-        panel.setBorder(new EmptyBorder(20,20,20,20));
-        JPanel bpanel = new JPanel(new GridLayout(1, 2, 20, 20));
-        JButton db2 = new JButton("Регистрация");
-        db2.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                panel.add(l2);
-                panel.add(t2);
-                panel.add(l4);
-                panel.add(cb);
-                panel.repaint();
-                f.setCharAt(0,'1');
-                panel.validate();
-            }
-        });
-        JButton db3 = new JButton("Логин");
-        db3.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                panel.remove(l2);
-                panel.remove(t2);
-                panel.remove(l4);
-                panel.remove(cb);
-                panel.repaint();
-                f.setCharAt(0,'0');
-                panel.validate();
-            }
-        });
-        bpanel.add(db);
-        bpanel.add(db2);
-        bpanel.add(db3);
-        bpanel.setBorder(new EmptyBorder(20,20,20,20));
-        getContentPane().add(panel, BorderLayout.CENTER);
-        getContentPane().add(bpanel, BorderLayout.SOUTH);
     }
     public static void main(String[] args)
     {
-        final ServerSocket sct;
-        try {
-            sct = new ServerSocket(0);
-            Login lg = new Login(sct);
-            lg.initialize();
-            lg.setVisible(true);
-        }
-        catch (Exception e)
-        {
-            System.out.println(e);
-        }
+        Login lg = new Login();
+        lg.initialize();
+        lg.setVisible(true);
     }
     protected MaskFormatter createFormatter(String s) {
         MaskFormatter formatter = null;
