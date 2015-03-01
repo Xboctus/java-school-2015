@@ -1,5 +1,5 @@
-import java.io.*;
-import java.net.*;
+//import java.io.*;
+//import java.net.*;
 import java.sql.*;
 import java.util.*;
 
@@ -9,6 +9,7 @@ public final class ServerHandler {
 		NO_SUCH_USER,
 		USER_EXISTS,
 		INTERNAL_ERROR,
+		UNAUTHORIZED,
 	}
 
 	private static Timer timer;
@@ -83,7 +84,25 @@ public final class ServerHandler {
 		return res;
 	}
 */
-	public static class CreateUserResult {
+	public static HandlingError login(String name, String password) {
+		HandlingError result = HandlingError.INTERNAL_ERROR;
+		try (
+			PreparedStatement statement = DbConnector.createStatement(DbConnector.ActionStatement.AUTHENTICATE);
+		) {
+			statement.setString(1, name);
+			statement.setString(2, password);
+			try (ResultSet rs = statement.executeQuery()) {
+				result = rs.next() ? HandlingError.NO_ERROR : HandlingError.UNAUTHORIZED;
+			} catch (SQLException e) {
+				Server.servletContext.log("Result set related exception occured", e);
+			}
+		} catch (SQLException e) {
+			Server.servletContext.log("Statement related exception occured", e);
+		}
+		return result;
+	}
+
+/*	public static class CreateUserResult {
 		public HandlingError error;
 		public int serverPort;
 
@@ -123,4 +142,4 @@ public final class ServerHandler {
 		res.serverPort = SocketInterface.getEventPort();
 		return res;
 	}
-}
+*/}

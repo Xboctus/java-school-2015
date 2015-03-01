@@ -1,16 +1,14 @@
-import java.io.*;
-import java.net.*;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.io.*;
+import java.net.*;
+import java.sql.*;
 
 public final class SocketInterface {
 	private static ServerSocket serverSocket = null;
-	private static AtomicBoolean connectionsAcceptable;
-	private static ArrayList<ConnectionHandler> connectionHandlers;
-	private static ConnectionDispatcher connectionDispatcher;
+	private static AtomicBoolean consAcceptable;
+	private static ArrayList<ConnectionHandler> conHandlers;
+	private static ConnectionDispatcher conDispatcher;
 
 	private static class ConnectionHandler extends Thread {
 		private Socket socket;
@@ -63,28 +61,21 @@ public final class SocketInterface {
 
 			@Override
 			public String[] serve(String[] parts) {
-				if (!SyntaxChecker.checkLogin(parts[1])) {
-					return new String[] {"login_invalid"};
-				}
-				// FIXME: concurrent access to statement
-				PreparedStatement statement = DbConnector.ActionStatement.AUTHENTICATE.statement;
-				try {
-					statement.setString(1, parts[1]);
-					statement.setString(2, parts[2]);
+				String result = "internal_error";
+				try (
+					PreparedStatement statement = DbConnector.createStatement(DbConnector.ActionStatement.AUTHENTICATE);
+				) {
+					statement.setString(1, parts[0]);
+					statement.setString(2, parts[1]);
+					try (ResultSet rs = statement.executeQuery()) {
+						result = rs.next() ? "login_valid" : "login_invalid";
+					} catch (SQLException e) {
+						Server.servletContext.log("Result set related exception occured", e);
+					}
 				} catch (SQLException e) {
-					return new String[] {"internal_error"};
+					Server.servletContext.log("Statement related exception occured", e);
 				}
-				boolean empty;
-				try (ResultSet rs = statement.executeQuery()) {
-					empty = !rs.next();
-				} catch (SQLException e) {
-					return new String[] {"internal_error"};
-				}
-				if (empty) {
-					return new String[] {"login_invalid"};
-				}
-				name = parts[1];
-				return new String[] {"login_valid"};
+				return new String[] {result};
 			}
 		}
 
@@ -137,9 +128,9 @@ public final class SocketInterface {
 			@Override
 			public String[] serve(String[] parts) {
 				if (name != null) {
-					for (ConnectionHandler ch: connectionHandlers) {
+					for (ConnectionHandler ch: conHandlers) {
 						if (name.equals(ch.name)) {
-							;
+							; // TODO
 						}
 					}
 				}
@@ -162,7 +153,8 @@ public final class SocketInterface {
 		@Override
 		public void run() {
 			while (running) {
-				String[] parts = scanner.next().split("\u001F"); // FIXME: empty last arguments are discarded
+				// FIXME: if first character is message terminator, it is skipped
+				String[] parts = scanner.next().split("\u001F", -1);
 
 				timeout.set(false);
 
@@ -190,7 +182,7 @@ public final class SocketInterface {
 					}
 				}
 
-				Server.printMessage(respParts, printWriter);
+				Shared.sendMessage(respParts, printWriter);
 			}
 			scanner.close(); // -> inputStream.close() -> causes socket.close()
 		}
@@ -203,29 +195,29 @@ public final class SocketInterface {
 
 		@Override
 		public void run() {
-			while (connectionsAcceptable.get()) {
+			while (consAcceptable.get()) {
 				try {
 					ConnectionHandler ch = new ConnectionHandler(serverSocket.accept());
-					connectionHandlers.add(ch);
+					conHandlers.add(ch);
 					ch.start();
 				} catch (IOException e) {
 					continue;
 				}
 			}
-			for (ConnectionHandler ch: connectionHandlers) {
+/*			for (ConnectionHandler ch: conHandlers) {
 				;
 			}
-		}
+*/		}
 	}
 
 	private static final int CLIENT_TIMEOUT = 30; // in mins
 
-	private static Timer timeoutCleanupTimer;
+	private static Timer timeoutCleaner;
 
 	private static class TimeoutCleanupTask extends TimerTask {
 		@Override
 		public void run() {
-			for (ConnectionHandler ch: connectionHandlers) {
+			for (ConnectionHandler ch: conHandlers) {
 				if (ch.timeout.get()) {
 					; // TODO
 				} else {
@@ -237,24 +229,24 @@ public final class SocketInterface {
 
 	public static void init() throws IOException {
 		serverSocket = new ServerSocket(0);
-		connectionsAcceptable = new AtomicBoolean(true);
-		connectionHandlers = new ArrayList<>();
-		connectionDispatcher = new ConnectionDispatcher();
-		connectionDispatcher.start();
-		timeoutCleanupTimer = new Timer();
-		timeoutCleanupTimer.schedule(new TimeoutCleanupTask(), 0, (CLIENT_TIMEOUT + 5)*60*1000);
+		consAcceptable = new AtomicBoolean(true);
+		conHandlers = new ArrayList<>();
+		conDispatcher = new ConnectionDispatcher();
+		conDispatcher.start();
+		timeoutCleaner = new Timer();
+		timeoutCleaner.schedule(new TimeoutCleanupTask(), 0, (CLIENT_TIMEOUT + 5)*60*1000);
 	}
 
 	public static void destroy() throws IOException, InterruptedException {
 		if (serverSocket == null) {
 			return;
 		}
-		timeoutCleanupTimer.cancel();
-		connectionsAcceptable.set(false);
+		timeoutCleaner.cancel();
+		consAcceptable.set(false);
 		try {
 			serverSocket.close();
 		} finally {
-			connectionDispatcher.join(); // FIXME: if throws, previously thrown exception is lost
+			conDispatcher.join(); // FIXME: if throws, previously thrown exception is lost
 		}
 	}
 
@@ -262,7 +254,7 @@ public final class SocketInterface {
 		return serverSocket != null ? serverSocket.getLocalPort() : 0;
 	}
 
-	public static void sendEvent(String name, String[] parts) {
+/*	public static void sendEvent(String name, String[] parts) {
 		;
 	}
-}
+*/}

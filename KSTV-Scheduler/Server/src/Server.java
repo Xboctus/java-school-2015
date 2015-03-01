@@ -1,20 +1,20 @@
-import java.util.*;
 import java.io.*;
-import java.sql.*;
 
 import javax.servlet.*;
 import javax.servlet.http.*;
 
 @SuppressWarnings("serial")
 public class Server extends HttpServlet {
-	private ServletContext servletContext;
+	public static ServletContext servletContext;
+	private static final ThreadLocal<String> debugInfo = new ThreadLocal<>();
 
 	@Override
 	public void init() throws UnavailableException {
 		servletContext = getServletContext();
 		try {
-			DbConnector.init(servletContext);
+			DbConnector.init();
 		} catch (Exception e) {
+			// TODO: server can function without DB
 			UnavailableException ue = new UnavailableException("DbConnector.init() failed");
 			ue.initCause(e);
 			throw ue;
@@ -37,57 +37,14 @@ public class Server extends HttpServlet {
 		}
 		try {
 			DbConnector.destroy();
-		} catch (SQLException e) {
+		} catch (Exception e) {
 			servletContext.log("DbConnector.destroy() failed", e);
 		}
-	}
-
-	private static HashMap<String, String> getPars(HttpServletRequest req) {
-		String parsStr;
-		try (BufferedReader reader = req.getReader()) {
-			parsStr = reader.readLine(); // request should contain exactly one line
-		} catch (IOException e) {
-			return null;
-		}
-
-		if (parsStr == null) {
-			return null;
-		}
-
-		HashMap<String, String> pars = new HashMap<>();
-		for (String parStr: parsStr.split("&")) {
-			int i = parStr.indexOf('=');
-			pars.put(parStr.substring(0, i), parStr.substring(i + 1));
-		}
-
-		return pars;
-	}
-
-	private static final int SC_USER_EXISTS = 450;
-//	private static final int SC_NO_SUCH_USER = 451;
-
-	private static final char MessagePartsSeparator = '\u001F';
-	private static final char MessageTerminator = '\u001E';
-
-	public static void printMessage(String[] parts, PrintWriter writer) {
-		for (int i = 0; i < parts.length - 1; ++i) {
-			writer.print(parts[i]);
-			writer.print(MessagePartsSeparator);
-		}
-		writer.print(parts[parts.length - 1]);
-		writer.print(MessageTerminator);
-		writer.flush();
 	}
 
 	private static class Response {
 		public int statusCode;
 		public String[] parts;
-		public String debug;
-
-		public Response(int statusCode, String[] parts) {
-			this.statusCode = statusCode;
-			this.parts = parts;
-		}
 
 		public Response(int statusCode) {
 			this.statusCode = statusCode;
@@ -99,6 +56,8 @@ public class Server extends HttpServlet {
 			this.parts = parts;
 		}
 
+		public static final Response UNAUTHORIZED_RESPONSE = new Response(HttpServletResponse.SC_UNAUTHORIZED);
+		public static final Response OK_RESPONSE = new Response(HttpServletResponse.SC_OK);
 		public static final Response BAD_REQUEST_RESPONSE = new Response(HttpServletResponse.SC_BAD_REQUEST);
 		public static final Response INTERNAL_ERROR_RESPONSE = new Response(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 		public static final Response NOT_FOUND_RESPONSE = new Response(HttpServletResponse.SC_NOT_FOUND);
@@ -106,62 +65,85 @@ public class Server extends HttpServlet {
 		public void send(HttpServletResponse res) {
 			res.setStatus(statusCode);
 			res.setContentType("text/plain");
+
+			String debug = debugInfo.get();
 			if (debug != null) {
 				res.addHeader("Debug", debug);
 			}
-			if (parts != null) {
-				try (PrintWriter pw = res.getWriter()) {
-					printMessage(parts, pw);
-				} catch (IOException e) {
-					res.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+			try (PrintWriter pw = res.getWriter()) {
+				Shared.sendMessage(parts, pw);
+			} catch (IOException e) {
+				try {
+					res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+				} catch (IOException e2) {
+					servletContext.log("", e2);
 				}
 			}
 		}
 	}
 
+	private static class Info {
+		String path;
+		String[] reqPars;
+		Response response = null;
+	}
+
+	@Override
+	public void service(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
+		switch (req.getMethod()) {
+		case "GET":
+		case "POST":
+		case "PUT":
+		case "DELETE":
+			debugInfo.set(null);
+
+			Info info = new Info();
+			info.path = req.getPathInfo();
+			if (info.path == null) {
+				Response.NOT_FOUND_RESPONSE.send(res);
+				return;
+			}
+			try {
+				info.reqPars = Shared.getPars(req.getReader());
+			} catch (IOException e) {
+				servletContext.log("Extracrtion of request parameters failed", e);
+				Response.INTERNAL_ERROR_RESPONSE.send(res);
+				return;
+			}
+			if (info.reqPars == null) {
+				Response resp = Response.BAD_REQUEST_RESPONSE;
+				resp.send(res);
+				return;
+			}
+			req.setAttribute("scheduler.info", info);
+
+			super.service(req, res); // polymorphically dispatches to this.doXXX()
+
+			if (info.response == null) {
+				Response.NOT_FOUND_RESPONSE.send(res);
+			} else {
+				info.response.send(res);
+			}
+
+			break;
+		default:
+			super.service(req, res);
+		}
+	}
+
 	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse res) {
-		Response response;
+		Info info = (Info)req.getAttribute("scheduler.info");
 
-		String path = req.getPathInfo();
-
-		if (path == null) {
-			response = Response.INTERNAL_ERROR_RESPONSE;
-			response.debug = "path is null";
-		} else {
-			if (path.equals("/event_port")) {
-				response = new Response(new String[] {Integer.toString(SocketInterface.getEventPort())});
-				response.debug = "path is " + path;
-			} else {
-				response = Response.NOT_FOUND_RESPONSE;
-				response.debug = "path is " + path;
-			}
+		if (info.path.equals("/event_port")) {
+			info.response = new Response(new String[] {
+				Integer.toString(SocketInterface.getEventPort()),
+				Long.toString(System.currentTimeMillis())
+			});
+//			info.response = new Response(info.reqPars);
 		}
-
-		response.send(res);
 	}
 /*
-	private static Response serveTest(HashMap<String, String> pars, String sessionId) {
-		String login = pars.get("login");
-		if (login == null || !SyntaxChecker.checkLogin(login)) {
-			return Response.BAD_REQUEST_RESPONSE;
-		}
-
-		ServerHandler.TestResult testResult = ServerHandler.test(login, sessionId);
-		if (testResult.error == ServerHandler.HandlingError.INTERNAL_ERROR) {
-			return Response.INTERNAL_ERROR_RESPONSE;
-		}
-
-		String resultKv = (testResult.exists ? "yes" : "no");
-		String listerPortKv = Integer.toString(testResult.serverPort);
-		String body = resultKv + " " + listerPortKv;
-
-		if (testResult.error == ServerHandler.HandlingError.NO_SUCH_USER) {
-			return new Response(body, SC_NO_SUCH_USER);
-		}
-		return new Response(body, HttpServletResponse.SC_OK);
-	}
-*/
 	@Override
 	public void doPost(HttpServletRequest req, HttpServletResponse res) {
 		Response response;
@@ -175,10 +157,7 @@ public class Server extends HttpServlet {
 			if (action == null) {
 				response = Response.BAD_REQUEST_RESPONSE;
 			} else switch (action) {
-/*			case "test":
-				response = serveTest(pars, req.getSession().getId());
-				break;
-*/			default:
+			default:
 				response = Response.BAD_REQUEST_RESPONSE;
 			}
 		}
@@ -220,13 +199,35 @@ public class Server extends HttpServlet {
 		}
 		return new Response(HttpServletResponse.SC_OK, body);
 	}
+*/
+	private static Response serveLogin(HttpServletRequest req, String[] pars) {
+		String name = pars[0];
+		if (!SyntaxChecker.checkName(name)) {
+			return Response.BAD_REQUEST_RESPONSE;
+		}
+		String password = pars[1];
+
+		ServerHandler.HandlingError error = ServerHandler.login(name, password);
+		switch (error) {
+		case INTERNAL_ERROR:
+			return Response.INTERNAL_ERROR_RESPONSE;
+		case UNAUTHORIZED:
+			return Response.UNAUTHORIZED_RESPONSE;
+		default:
+			assert error == ServerHandler.HandlingError.NO_ERROR;
+			req.getSession().setAttribute("scheduler.name", name);
+			return Response.OK_RESPONSE;
+		}
+	}
 
 	@Override
 	public void doPut(HttpServletRequest req, HttpServletResponse res) {
-		Response response;
+		Info info = (Info)req.getAttribute("scheduler.info");
 
-		HashMap<String, String> pars = getPars(req);
-
+		if (info.path.equals("/login")) {
+			info.response = serveLogin(req, info.reqPars);
+		}
+/*
 		if (pars == null) {
 			response = Response.BAD_REQUEST_RESPONSE;
 		} else {
@@ -241,7 +242,6 @@ public class Server extends HttpServlet {
 				response = Response.BAD_REQUEST_RESPONSE;
 			}
 		}
-
-		response.send(res);
+*/
 	}
 }
