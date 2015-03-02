@@ -5,10 +5,11 @@ import java.net.*;
 import java.sql.*;
 
 public final class SocketInterface {
-	private static ServerSocket serverSocket = null;
+	private static ServerSocket serverSocket;
 	private static AtomicBoolean consAcceptable;
 	private static ArrayList<ConnectionHandler> conHandlers;
 	private static ConnectionDispatcher conDispatcher;
+	private static boolean initialized = false;
 
 	private static class ConnectionHandler extends Thread {
 		private Socket socket;
@@ -38,29 +39,17 @@ public final class SocketInterface {
 			this.printWriter = new PrintWriter(this.outputStream);
 		}
 
-		private interface CommandHandler {
-			public static class VerbAndArgCount {
-				String verb;
-				int argCount;
-
-				public VerbAndArgCount(String verb, int argCount) {
-					this.verb = verb;
-					this.argCount = argCount;
-				}
-			}
-
-			VerbAndArgCount getVerbAndArgCount();
-			String[] serve(String[] parts);
+		private abstract class CommandHandler {
+			String verb;
+			int argCount;
+			abstract String[] handle(String[] parts);
 		}
 
-		private class LoginHandler implements CommandHandler {
-			@Override
-			public VerbAndArgCount getVerbAndArgCount() {
-				return new VerbAndArgCount("login", 2);
-			}
+		private class LoginHandler extends CommandHandler {
+			{ verb = "login"; argCount = 2; }
 
 			@Override
-			public String[] serve(String[] parts) {
+			public String[] handle(String[] parts) {
 				String result = "internal_error";
 				try (
 					PreparedStatement statement = DbConnector.createStatement(DbConnector.ActionStatement.AUTHENTICATE);
@@ -79,54 +68,42 @@ public final class SocketInterface {
 			}
 		}
 
-		private class LogoutHandler implements CommandHandler {
-			@Override
-			public VerbAndArgCount getVerbAndArgCount() {
-				return new VerbAndArgCount("logout", 0);
-			}
+		private class LogoutHandler extends CommandHandler {
+			{ verb = "logout"; argCount = 0; }
 
 			@Override
-			public String[] serve(String[] parts) {
+			public String[] handle(String[] parts) {
 				name = null;
 				return new String[] {"logout_ack"};
 			}
 		}
 
-		private class DisconnectHandler implements CommandHandler {
-			@Override
-			public VerbAndArgCount getVerbAndArgCount() {
-				return new VerbAndArgCount("disconnect", 0);
-			}
+		private class DisconnectHandler extends CommandHandler {
+			{ verb = "disconnect"; argCount = 0; }
 
 			@Override
-			public String[] serve(String[] parts) {
+			public String[] handle(String[] parts) {
 				running = false;
 				// TODO
 				return new String[] {"disconnect_ack"};
 			}
 		}
 
-		private class ProlongateHandler implements CommandHandler {
-			@Override
-			public VerbAndArgCount getVerbAndArgCount() {
-				return new VerbAndArgCount("prolongate", 0);
-			}
+		private class ProlongateHandler extends CommandHandler {
+			{ verb = "prolongate"; argCount = 0; }
 
 			@Override
-			public String[] serve(String[] parts) {
+			public String[] handle(String[] parts) {
 				// TODO
 				return new String[] {"prolongate_ack"};
 			}
 		}
 
-		private class InvalidateHandler implements CommandHandler {
-			@Override
-			public VerbAndArgCount getVerbAndArgCount() {
-				return new VerbAndArgCount("invalidate", 0);
-			}
+		private class InvalidateHandler extends CommandHandler {
+			{ verb = "invalidate"; argCount = 0; }
 
 			@Override
-			public String[] serve(String[] parts) {
+			public String[] handle(String[] parts) {
 				if (name != null) {
 					for (ConnectionHandler ch: conHandlers) {
 						if (name.equals(ch.name)) {
@@ -165,15 +142,14 @@ public final class SocketInterface {
 				} else {
 					boolean served = false;
 					for (CommandHandler ch: commandHandlers) {
-						CommandHandler.VerbAndArgCount vaac = ch.getVerbAndArgCount();
-						if (!parts[0].equals(vaac.verb)) {
+						if (!parts[0].equals(ch.verb)) {
 							continue;
 						}
-						if (parts.length - 1 != vaac.argCount) {
+						if (parts.length - 1 != ch.argCount) {
 							respParts = respPartsInvalidArgsCount;
 							break;
 						}
-						respParts = ch.serve(parts);
+						respParts = ch.handle(parts);
 						served = true;
 						break;
 					}
@@ -182,7 +158,11 @@ public final class SocketInterface {
 					}
 				}
 
-				Shared.sendMessage(respParts, printWriter);
+				try {
+					Shared.putParts(respParts, printWriter);
+				} catch (IOException e) {
+					running = false;
+				}
 			}
 			scanner.close(); // -> inputStream.close() -> causes socket.close()
 		}
@@ -233,20 +213,33 @@ public final class SocketInterface {
 		conHandlers = new ArrayList<>();
 		conDispatcher = new ConnectionDispatcher();
 		conDispatcher.start();
-		timeoutCleaner = new Timer();
+		timeoutCleaner = new Timer(); // TODO: don't start timer until first connection
 		timeoutCleaner.schedule(new TimeoutCleanupTask(), 0, (CLIENT_TIMEOUT + 5)*60*1000);
+		initialized = true;
 	}
 
 	public static void destroy() throws IOException, InterruptedException {
-		if (serverSocket == null) {
+		if (!initialized) {
 			return;
 		}
 		timeoutCleaner.cancel();
 		consAcceptable.set(false);
+		IOException exc = null;
 		try {
 			serverSocket.close();
-		} finally {
-			conDispatcher.join(); // FIXME: if throws, previously thrown exception is lost
+		} catch (IOException e) {
+			exc = e;
+		}
+		try {
+			conDispatcher.join();
+		} catch (InterruptedException e) {
+			if (exc != null) {
+				e.addSuppressed(exc);
+			}
+			throw e;
+		}
+		if (exc != null) {
+			throw exc;
 		}
 	}
 
