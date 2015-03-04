@@ -57,7 +57,7 @@ public class Server extends HttpServlet {
 		}
 
 		public static final Response OK_RESPONSE = new Response(HttpServletResponse.SC_OK);
-		public static final Response BAD_REQUEST_RESPONSE = new Response(HttpServletResponse.SC_BAD_REQUEST);
+//		public static final Response BAD_REQUEST_RESPONSE = new Response(HttpServletResponse.SC_BAD_REQUEST);
 		public static final Response UNAUTHORIZED_RESPONSE = new Response(HttpServletResponse.SC_UNAUTHORIZED);
 		public static final Response NOT_FOUND_RESPONSE = new Response(HttpServletResponse.SC_NOT_FOUND);
 		public static final Response INTERNAL_ERROR_RESPONSE = new Response(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
@@ -128,11 +128,11 @@ public class Server extends HttpServlet {
 				}
 				servletContext.log("Closing of request reader failed", e);
 			}
-			if (info.reqPars == Shared.msgDelimiterNotFound) {
+/*			if (info.reqPars == Shared.msgDelimiterNotFound) {
 				response = Response.badRequest("Message delimiter not found");
 				break gettingResponse;
 			}
-			if (info.reqPars == Shared.textPastTheLastPart) {
+*/			if (info.reqPars == Shared.textPastTheLastPart) {
 				response = Response.badRequest("Text past the last message part");
 				break gettingResponse;
 			}
@@ -171,6 +171,10 @@ public class Server extends HttpServlet {
 		});
 	}
 
+	private static Response serveOwnInfo(HttpServletRequest req, String[] pars) {
+		return null;
+	}
+
 	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse res) {
 		Info info = (Info)req.getAttribute(INFO_ATTR);
@@ -185,6 +189,13 @@ public class Server extends HttpServlet {
 	}
 
 	private static Response serveLogin(HttpServletRequest req, String[] pars) throws Exception {
+		if (pars == Shared.msgDelimiterNotFound) {
+			return Response.badRequest("Message delimiter not found");
+		}
+		if (pars.length < 2) {
+			return Response.badRequest("Not enough parameters");
+		}
+
 		String name = pars[0];
 		if (!SyntaxChecker.checkName(name)) {
 			return Response.badRequest("Name syntax invalid");
@@ -200,6 +211,15 @@ public class Server extends HttpServlet {
 		return Response.OK_RESPONSE;
 	}
 
+	@SuppressWarnings("unused")
+	private static Response serveLogout(HttpServletRequest req, String[] pars) throws Exception {
+		HttpSession session = req.getSession(false);
+		if (session != null) {
+			session.invalidate();
+		}
+		return Response.OK_RESPONSE;
+	}
+
 	@Override
 	public void doPut(HttpServletRequest req, HttpServletResponse res) {
 		Info info = (Info)req.getAttribute(INFO_ATTR);
@@ -207,6 +227,8 @@ public class Server extends HttpServlet {
 		try {
 			if (info.path.equals("/login")) {
 				info.response = serveLogin(req, info.reqPars);
+			} else if (info.path.equals("/logout")) {
+				info.response = serveLogout(req, info.reqPars);
 			}
 		} catch (Exception e) {
 			info.exc = e;
