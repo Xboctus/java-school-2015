@@ -7,6 +7,10 @@ import javax.servlet.http.*;
 public class Server extends HttpServlet {
 	public static ServletContext servletContext;
 
+	public static void log_exc(String msg, Throwable exc) {
+		servletContext.log(msg, exc);
+	}
+
 	@Override
 	public void init() throws UnavailableException {
 		servletContext = getServletContext();
@@ -20,7 +24,7 @@ public class Server extends HttpServlet {
 		try {
 			SocketInterface.init();
 		} catch (Exception e) {
-			servletContext.log("SocketInterface.init() failed", e);
+			log_exc("SocketInterface.init() failed", e);
 		}
 		ServerHandler.startTimer();
 	}
@@ -31,13 +35,14 @@ public class Server extends HttpServlet {
 		try {
 			SocketInterface.destroy();
 		} catch (Exception e) {
-			servletContext.log("SocketInterface.destroy() failed", e);
+			log_exc("SocketInterface.destroy() failed", e);
 		}
 		try {
 			DbConnector.destroy();
 		} catch (Exception e) {
-			servletContext.log("DbConnector.destroy() failed", e);
+			log_exc("DbConnector.destroy() failed", e);
 		}
+		servletContext = null;
 	}
 
 	private static class Response {
@@ -119,29 +124,25 @@ public class Server extends HttpServlet {
 			}
 
 			try (BufferedReader reader = req.getReader()) {
-				info.reqPars = Shared.getParts(reader);
+				Shared.GetPartsResult r = Shared.getParts2(reader);
+				info.reqPars = r.parts;
+				if (r.ioe != null) {
+					throw r.ioe;
+				}
 			} catch (IOException e) {
 				if (info.reqPars == null) {
-					servletContext.log("Opening of request reader failed", e);
+					log_exc("Opening of request reader failed", e);
 					response = Response.INTERNAL_ERROR_RESPONSE;
 					break gettingResponse;
 				}
-				servletContext.log("Closing of request reader failed", e);
-			}
-/*			if (info.reqPars == Shared.msgDelimiterNotFound) {
-				response = Response.badRequest("Message delimiter not found");
-				break gettingResponse;
-			}
-*/			if (info.reqPars == Shared.textPastTheLastPart) {
-				response = Response.badRequest("Text past the last message part");
-				break gettingResponse;
+				log_exc("Closing of request reader failed", e);
 			}
 
 			req.setAttribute(INFO_ATTR, info);
 			super.service(req, res); // polymorphically dispatches to this.doXXX()
 
 			if (info.exc != null) {
-				servletContext.log("Exception during request handling", info.exc);
+				log_exc("Exception during request handling", info.exc);
 				response = Response.INTERNAL_ERROR_RESPONSE;
 			} else if (info.response == null) {
 				response = Response.NOT_FOUND_RESPONSE;
@@ -153,12 +154,12 @@ public class Server extends HttpServlet {
 		try {
 			response.send(res);
 		} catch (IOException e) {
-			servletContext.log("Sending response failed", e);
+			log_exc("Sending response failed", e);
 			if (!res.isCommitted()) {
 				try {
 					res.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
 				} catch (IOException e2) {
-					servletContext.log("Sending error failed", e2);
+					log_exc("Sending error failed", e2);
 				}
 			}
 		}
@@ -171,10 +172,10 @@ public class Server extends HttpServlet {
 		});
 	}
 
-	private static Response serveOwnInfo(HttpServletRequest req, String[] pars) {
+/*	private static Response serveOwnInfo(HttpServletRequest req, String[] pars) {
 		return null;
 	}
-
+*/
 	@Override
 	public void doGet(HttpServletRequest req, HttpServletResponse res) {
 		Info info = (Info)req.getAttribute(INFO_ATTR);
@@ -189,9 +190,6 @@ public class Server extends HttpServlet {
 	}
 
 	private static Response serveLogin(HttpServletRequest req, String[] pars) throws Exception {
-		if (pars == Shared.msgDelimiterNotFound) {
-			return Response.badRequest("Message delimiter not found");
-		}
 		if (pars.length < 2) {
 			return Response.badRequest("Not enough parameters");
 		}
