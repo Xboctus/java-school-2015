@@ -4,12 +4,11 @@
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.event.*;
+import java.net.HttpURLConnection;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URL;
 import java.sql.*;
 import java.text.DateFormat;
 import java.text.ParseException;
@@ -39,7 +38,7 @@ public class BaseForm extends JFrame {
         setLocationRelativeTo(null);
         this.sct = sct;
     }
-    public void initialize(final JFrame jf, String log, String pass) {
+    public void initialize(final JFrame jf, String log, String pass, final StringBuilder cookie) {
         JPanel buttonPanel = new JPanel(new GridLayout(0, 1, 30, 30));
         JButton b1 = new JButton("Create user");
         buttonPanel.setBorder(new EmptyBorder(30, 10, 10, 10));
@@ -55,7 +54,52 @@ public class BaseForm extends JFrame {
             }
         };
         trd.start();*/
+        addWindowListener(new WindowListener() {
+            @Override
+            public void windowOpened(WindowEvent e) {
 
+            }
+
+            @Override
+            public void windowClosing(WindowEvent e) {
+                try {
+                    URL url = new URL("http://localhost:8080/Server/hello/logout");
+                    HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                    con.setRequestMethod("PUT");
+                    con.setRequestProperty("Cookie", cookie.toString());
+                    int responseCode = con.getResponseCode();
+                    System.out.println(responseCode);
+                }catch (Exception ex)
+                {
+                    System.out.println(ex.getMessage());
+                }
+            }
+
+            @Override
+            public void windowClosed(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowIconified(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowDeiconified(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowActivated(WindowEvent e) {
+
+            }
+
+            @Override
+            public void windowDeactivated(WindowEvent e) {
+
+            }
+        });
         try {
             JButton b2 = new JButton("Add event");
             b2.setPreferredSize(new Dimension(150, 30));

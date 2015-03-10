@@ -84,14 +84,15 @@ public class Login extends JFrame {
                         else
                             try {
                                 if (f.toString().equals("1")) {
-                                    if (Sender.create(t1.getText().trim(),t3.getText().trim(), t2.getText().trim(),cb.isSelected())==200) {
-                                        jd.dispose();
+                                    StringBuilder cookie = new StringBuilder();
+                                    if (Sender.create(t1.getText().trim(),t3.getText().trim(), t2.getText().trim(),cb.isSelected(), cookie)==200) {
+                                        dispose();
                                         Socket sct = new Socket("localhost",new Integer(soc));
                                         PrintWriter w = new PrintWriter(sct.getOutputStream());
                                         w.print("login\u001F" + t1.getText().trim() + "\u001F" + t3.getText().trim() + "\u001E");
                                         w.flush();
                                         final BaseForm bf = new BaseForm(sct);
-                                        bf.initialize(bf,t1.getText().trim(),t3.getText().trim());
+                                        bf.initialize(bf,t1.getText().trim(),t3.getText().trim(), cookie);
                                         bf.setVisible(true);
                                         Listener ltr = new Listener(sct);
                                     }
@@ -100,14 +101,16 @@ public class Login extends JFrame {
                                 }
                                 else
                                 {
-                                    if (Sender.login(t1.getText().trim(), t3.getText().trim())==200) {
-                                        jd.dispose();
+                                    StringBuilder cookie = new StringBuilder();
+                                    if (Sender.login(t1.getText().trim(), t3.getText().trim(), cookie)==200) {
+                                        dispose();
                                         Socket sct = new Socket("localhost",new Integer(soc));
                                         PrintWriter w = new PrintWriter(sct.getOutputStream());
-                                        w.print("login\u001F"+t1.getText().trim()+"\u001F"+t3.getText().trim()+"\u001E");
+                                        String d = "login\u001F"+t1.getText().trim()+"\u001F"+t3.getText().trim()+"\u001E";
+                                        w.print(d);
                                         w.flush();
                                         final BaseForm bf = new BaseForm(sct);
-                                        bf.initialize(bf,t1.getText().trim(),t3.getText().trim());
+                                        bf.initialize(bf,t1.getText().trim(),t3.getText().trim(), cookie);
                                         bf.setVisible(true);
                                         Listener ltr = new Listener(sct);
                                     }
@@ -159,6 +162,8 @@ public class Login extends JFrame {
         }catch(Exception e)
         {
             System.out.println(e.getMessage());
+            JOptionPane.showMessageDialog(jd, "Ошибка подключения к серверу");
+
         }
     }
     public static void main(String[] args)

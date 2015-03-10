@@ -45,13 +45,13 @@ public class Sender {
         //System.out.println(response.toString());
         return responseCode;
     }
-    public static int create(String login, String pass, String zone, boolean active) throws Exception
+    public static int create(String login, String pass, String zone, boolean active, StringBuilder cookies) throws Exception
     {
-        URL url = new URL("http://localhost:8080/Server/users");
+        URL url = new URL("http://localhost:8080/Server/hello/users");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
         con.setRequestMethod("POST");
         String act = (active)?"active":"passive";
-        String prm = "login="+login+"&password="+pass+"&timezone="+zone+"&active="+act;
+        String prm = login+"\u001F"+pass+"\u001F"+zone+"\u001F"+act+"\u001E";
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
         os.writeBytes(prm);
@@ -79,18 +79,24 @@ public class Sender {
         return responseCode;
 
     }
-    public static int login(String login, String pass) throws Exception
+    public static int login(String login, String pass, StringBuilder cookies) throws Exception
     {
-        URL url = new URL("http://localhost:8080/Server/login");
+        URL url = new URL("http://localhost:8080/Server/hello/login");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
         con.setRequestMethod("PUT");
-        String prm = "login="+login+"&password="+pass;
+        String prm = login+"\u001F"+pass+"\u001F\u001E";
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
         os.writeBytes(prm);
         os.flush();
         os.close();
         int responseCode = con.getResponseCode();
+        String headerName=null;
+        for (int i=1; (headerName = con.getHeaderFieldKey(i))!=null; i++) {
+                if (headerName.equals("Set-Cookie")) {
+                    cookies.append(con.getHeaderField(i));
+                }
+        }
         System.out.println(responseCode);
         return responseCode;
 

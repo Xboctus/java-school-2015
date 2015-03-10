@@ -31,9 +31,10 @@ public class Listener extends Thread{
             sct.close();*/
             BufferedReader in = new BufferedReader(new InputStreamReader(sct.getInputStream()));
             Scanner sc = new Scanner(in);
+            sc.useDelimiter("\u001E");
             while (true)
             {
-                String s = sc.nextLine();
+                String s = sc.next();
                 ta.append(s+"\n");
                 System.out.print(s+"\n");
             }
