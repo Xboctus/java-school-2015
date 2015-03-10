@@ -1,42 +1,36 @@
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.io.*;
 import java.net.*;
+import java.nio.channels.ClosedByInterruptException;
 import java.sql.*;
 
+// TODO: use NIO for scheme "multiple connections - single handler"
 public final class SocketInterface {
-	private static ServerSocket serverSocket;
-	private static AtomicBoolean consAcceptable;
-	private static ArrayList<ConnectionHandler> conHandlers;
+	private static ServerSocket serverSocket = null;
+	private static Vector<ConnectionHandler> conHandlers; // TODO: use thread pool
 	private static ConnectionDispatcher conDispatcher;
 	private static boolean initialized = false;
 
 	private static class ConnectionHandler extends Thread {
-		private Socket socket;
-		private InputStream inputStream;
-		private Scanner scanner;
-		private OutputStream outputStream;
-		public PrintWriter printWriter;
-		public String name = null;
-		public AtomicBoolean timeout = new AtomicBoolean(false);
-		boolean running = true;
+		enum InterruptCause {
+			SHUTDOWN,
+			ASYNC_FAIL,
+			DISCONNECT,
+		}
 
-		private ConnectionHandler(Socket socket) {
-			super("Connection handler for " + socket.toString());
+		private Socket socket;
+		private BufferedReader reader;
+		public BufferedWriter writer;
+		public volatile String name = null;
+		public volatile InterruptCause interruptCause = InterruptCause.SHUTDOWN;
+
+		public static volatile boolean allowSelfRemoval = true;
+
+		private ConnectionHandler(Socket socket, InputStream ins, OutputStream outs) {
+			super("Connection handler for " + socket.getRemoteSocketAddress().toString());
 			this.socket = socket;
-			try {
-				this.inputStream = this.socket.getInputStream();
-			} catch (IOException e) {
-				; // TODO
-			}
-			this.scanner = new Scanner(this.inputStream);
-			this.scanner.useDelimiter("\u001E");
-			try {
-				this.outputStream = this.socket.getOutputStream();
-			} catch (IOException e) {
-				; // TODO
-			}
-			this.printWriter = new PrintWriter(this.outputStream);
+			this.reader = new BufferedReader(new InputStreamReader(ins));
+			this.writer = new BufferedWriter(new OutputStreamWriter(outs));
 		}
 
 		private abstract class CommandHandler {
@@ -54,15 +48,18 @@ public final class SocketInterface {
 				try (
 					PreparedStatement statement = DbConnector.createStatement(DbConnector.ActionStatement.AUTHENTICATE);
 				) {
-					statement.setString(1, parts[0]);
-					statement.setString(2, parts[1]);
+					statement.setString(1, parts[1]);
+					statement.setString(2, parts[2]);
 					try (ResultSet rs = statement.executeQuery()) {
 						result = rs.next() ? "login_valid" : "login_invalid";
 					} catch (SQLException e) {
-						Server.servletContext.log("Result set related exception occured", e);
+						Server.log_exc("Result set related exception occured", e);
 					}
 				} catch (SQLException e) {
-					Server.servletContext.log("Statement related exception occured", e);
+					Server.log_exc("Statement related exception occured", e);
+				}
+				if (result.equals("login_valid")) {
+					name = parts[1];
 				}
 				return new String[] {result};
 			}
@@ -83,8 +80,8 @@ public final class SocketInterface {
 
 			@Override
 			public String[] handle(String[] parts) {
-				running = false;
-				// TODO
+				interruptCause = InterruptCause.DISCONNECT;
+				Thread.currentThread().interrupt();
 				return new String[] {"disconnect_ack"};
 			}
 		}
@@ -94,7 +91,7 @@ public final class SocketInterface {
 
 			@Override
 			public String[] handle(String[] parts) {
-				// TODO
+				// no-op - receiving this command is enough to reset timeout
 				return new String[] {"prolongate_ack"};
 			}
 		}
@@ -102,16 +99,35 @@ public final class SocketInterface {
 		private class InvalidateHandler extends CommandHandler {
 			{ verb = "invalidate"; argCount = 0; }
 
+			private final ConnectionHandler parent;
+
+			public InvalidateHandler(ConnectionHandler parent) {
+				this.parent = parent;
+			}
+
 			@Override
 			public String[] handle(String[] parts) {
-				if (name != null) {
+				if (name == null) {
+					return new String[] {"invalidate_ack"};
+				}
+				synchronized (conHandlers) {
 					for (ConnectionHandler ch: conHandlers) {
-						if (name.equals(ch.name)) {
-							; // TODO
+						String curName = ch.name;
+						if (ch == parent || curName == null || !curName.equals(name)) {
+							continue;
+						}
+						ch.name = null;
+						try {
+							synchronized (ch.writer) {
+								Shared.putParts(new String[] {"invalidated"}, ch.writer);
+							}
+						} catch (IOException e) {
+							Server.log_exc("Sending response failed", e);
+							ch.interruptCause = InterruptCause.ASYNC_FAIL;
+							ch.interrupt();
 						}
 					}
 				}
-				// TODO
 				return new String[] {"invalidate_ack"};
 			}
 		}
@@ -121,7 +137,7 @@ public final class SocketInterface {
 			new LogoutHandler(),
 			new DisconnectHandler(),
 			new ProlongateHandler(),
-			new InvalidateHandler(),
+			new InvalidateHandler(this),
 		};
 
 		private static final String[] respPartsUnknownCommand = new String[] {"unknown_command"};
@@ -129,44 +145,108 @@ public final class SocketInterface {
 
 		@Override
 		public void run() {
-			while (running) {
-				// FIXME: if first character is message terminator, it is skipped
-				String[] parts = scanner.next().split("\u001F", -1);
+			try {
+				synchronized (writer) {
+					Shared.putParts(new String[] {"connect_ack"}, writer);
+				}
+			} catch (IOException e) {
+				Server.log_exc("Sending connect_ack failed", e);
+				Thread.currentThread().interrupt();
+			}
 
-				timeout.set(false);
+			boolean interrupted;
+			while (!(interrupted = Thread.interrupted())) {
+				Shared.GetPartsResult r = Shared.getParts2(reader);
+
+				if (r.ioe instanceof SocketTimeoutException) {
+					try {
+						synchronized (writer) {
+							Shared.putParts(new String[] {"timeout"}, writer);
+						}
+					} catch (IOException e) {
+						Server.log_exc("Sending error failed", e);
+					}
+					break;
+				}
+				if (r.ioe instanceof ClosedByInterruptException) {
+					interrupted = true;
+					break;
+				}
+				if (r.ioe != null || r.endOfStream) {
+					try {
+						synchronized (writer) {
+							Shared.putParts(new String[] {"io_error"}, writer);
+						}
+					} catch (IOException e) {
+						Server.log_exc("Sending error failed", e);
+					}
+					break;
+				}
 
 				String[] respParts = null;
 
-				if (parts.length == 0) {
+				if (r.parts.length == 0) {
 					respParts = respPartsUnknownCommand;
 				} else {
-					boolean served = false;
 					for (CommandHandler ch: commandHandlers) {
-						if (!parts[0].equals(ch.verb)) {
-							continue;
-						}
-						if (parts.length - 1 != ch.argCount) {
-							respParts = respPartsInvalidArgsCount;
+						if (r.parts[0].equals(ch.verb)) {
+							if (r.parts.length - 1 != ch.argCount) {
+								respParts = respPartsInvalidArgsCount;
+							} else {
+								respParts = ch.handle(r.parts);
+							}
 							break;
 						}
-						respParts = ch.handle(parts);
-						served = true;
-						break;
 					}
-					if (!served) {
+					if (respParts == null) {
 						respParts = respPartsUnknownCommand;
 					}
 				}
 
 				try {
-					Shared.putParts(respParts, printWriter);
+					synchronized (writer) {
+						Shared.putParts(respParts, writer);
+					}
 				} catch (IOException e) {
-					running = false;
+					Server.log_exc("Writing reponse parts failed", e);
 				}
 			}
-			scanner.close(); // -> inputStream.close() -> causes socket.close()
+
+			if (interrupted) {
+				try {
+					synchronized (writer) {
+						switch (interruptCause) {
+						case SHUTDOWN:
+							Shared.putParts(new String[] {"shutdown"}, writer);
+							break;
+						case ASYNC_FAIL:
+							Shared.putParts(new String[] {"io_error"}, writer);
+							break;
+						case DISCONNECT:
+							// no-op - "disconnect_ack" was already responded
+							break;
+						}
+					}
+				} catch (IOException e) {
+					Server.log_exc("Writing reponse parts failed", e);
+				}
+			}
+
+			try {
+				socket.close();
+			} catch (IOException e) {
+				Server.log_exc("socket.close() failed", e);
+			}
+
+			if (allowSelfRemoval) {
+				synchronized (conHandlers) {
+					conHandlers.remove(this); // uses Object.equals() for comparison
+				}
+			}
 		}
 	}
+
+	private static final int CLIENT_TIMEOUT = 30; // in mins
 
 	private static class ConnectionDispatcher extends Thread {
 		public ConnectionDispatcher() {
@@ -175,56 +255,81 @@ public final class SocketInterface {
 
 		@Override
 		public void run() {
-			while (consAcceptable.get()) {
+			conHandlers = new Vector<>();
+
+			while (!Thread.interrupted()) {
+				Socket socket;
 				try {
-					ConnectionHandler ch = new ConnectionHandler(serverSocket.accept());
-					conHandlers.add(ch);
-					ch.start();
-				} catch (IOException e) {
+					socket = serverSocket.accept(); // socket is closed by ConnectionHandler.run()
+				} catch (ClosedByInterruptException e) { // from conDispatcher.interrupt(), seems to not work
+					break;
+				} catch (SocketException e) { // from serverSocket.close()
+					break;
+				} catch (IOException e) { // from serverSocket.accept()
+					Server.log_exc("serverSocket.accept() failed", e);
 					continue;
 				}
+
+				OutputStream outs = null;
+				InputStream ins;
+
+				try {
+					// streams are automatically closed by socket.close() in ConnectionHandler.run()
+					outs = socket.getOutputStream();
+					ins = socket.getInputStream();
+					socket.setSoTimeout((CLIENT_TIMEOUT + 5)*60*1000);
+				} catch (IOException e) {
+					Server.log_exc("Socket initialization failed", e);
+					if (outs != null) {
+						try (BufferedWriter pw = new BufferedWriter(new OutputStreamWriter(outs))) {
+							Shared.putParts(new String[] {"io_error"}, pw);
+						} catch (IOException e2) {
+							Server.log_exc("Socket output stream related exception occured", e2);
+						}
+					}
+					try {
+						socket.close();
+					} catch (IOException e2) {
+						Server.log_exc("Closing socket failed", e);
+					}
+					continue;
+				}
+
+				ConnectionHandler ch = new ConnectionHandler(socket, ins, outs);
+				conHandlers.add(ch);
+				ch.start();
 			}
-/*			for (ConnectionHandler ch: conHandlers) {
-				;
-			}
-*/		}
-	}
 
-	private static final int CLIENT_TIMEOUT = 30; // in mins
+			ConnectionHandler.allowSelfRemoval = false;
 
-	private static Timer timeoutCleaner;
-
-	private static class TimeoutCleanupTask extends TimerTask {
-		@Override
-		public void run() {
 			for (ConnectionHandler ch: conHandlers) {
-				if (ch.timeout.get()) {
-					; // TODO
-				} else {
-					ch.timeout.set(true);
+				ch.interrupt();
+				try {
+					ch.join();
+				} catch (InterruptedException e) {
+					Server.log_exc("ch.join() was interrupted", e);
 				}
 			}
+
+			conHandlers = null;
 		}
 	}
 
 	public static void init() throws IOException {
 		serverSocket = new ServerSocket(0);
-		consAcceptable = new AtomicBoolean(true);
-		conHandlers = new ArrayList<>();
 		conDispatcher = new ConnectionDispatcher();
 		conDispatcher.start();
-		timeoutCleaner = new Timer(); // TODO: don't start timer until first connection
-		timeoutCleaner.schedule(new TimeoutCleanupTask(), 0, (CLIENT_TIMEOUT + 5)*60*1000);
 		initialized = true;
 	}
 
-	public static void destroy() throws IOException, InterruptedException {
+	public static void destroy() throws Exception {
 		if (!initialized) {
 			return;
 		}
-		timeoutCleaner.cancel();
-		consAcceptable.set(false);
-		IOException exc = null;
+
+		Exception exc = null;
+
+		conDispatcher.interrupt();
 		try {
 			serverSocket.close();
 		} catch (IOException e) {
@@ -236,8 +341,12 @@ public final class SocketInterface {
 			if (exc != null) {
 				e.addSuppressed(exc);
 			}
-			throw e;
+			exc = e;
 		}
+
+		conDispatcher = null;
+		serverSocket = null;
+
 		if (exc != null) {
 			throw exc;
 		}
