@@ -56,12 +56,6 @@ public class Login extends JFrame {
             URL url = new URL("http://localhost:8080/Server/hello/event_port");
             HttpURLConnection con = (HttpURLConnection) url.openConnection();
             con.setRequestMethod("GET");
-            //String prm = "action=event_port";
-            //con.setDoOutput(true);
-            //DataOutputStream os = new DataOutputStream(con.getOutputStream());
-            //os.writeBytes(prm);
-            //os.flush();
-            //os.close();
             int responseCode = con.getResponseCode();
             System.out.println(responseCode);
             BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
@@ -89,12 +83,13 @@ public class Login extends JFrame {
                                         dispose();
                                         Socket sct = new Socket("localhost",new Integer(soc));
                                         PrintWriter w = new PrintWriter(sct.getOutputStream());
-                                        w.print("login\u001F" + t1.getText().trim() + "\u001F" + t3.getText().trim() + "\u001E");
-                                        w.flush();
+                                        String[] mas = new String[3];
+                                        mas[0]="login"; mas[1] = t1.getText().trim(); mas[2] = t3.getText().trim();
+                                        Shared.putParts(mas, w);
                                         final BaseForm bf = new BaseForm(sct);
                                         bf.initialize(bf,t1.getText().trim(),t3.getText().trim(), cookie);
                                         bf.setVisible(true);
-                                        Listener ltr = new Listener(sct);
+                                        Listener ltr = new Listener(sct, bf);
                                     }
                                     else
                                         JOptionPane.showMessageDialog(jd, "Произошла ошибка");
@@ -106,13 +101,13 @@ public class Login extends JFrame {
                                         dispose();
                                         Socket sct = new Socket("localhost",new Integer(soc));
                                         PrintWriter w = new PrintWriter(sct.getOutputStream());
-                                        String d = "login\u001F"+t1.getText().trim()+"\u001F"+t3.getText().trim()+"\u001E";
-                                        w.print(d);
-                                        w.flush();
+                                        String[] mas = new String[3];
+                                        mas[0]="login"; mas[1] = t1.getText().trim(); mas[2] = t3.getText().trim();
+                                        Shared.putParts(mas,w);
                                         final BaseForm bf = new BaseForm(sct);
                                         bf.initialize(bf,t1.getText().trim(),t3.getText().trim(), cookie);
                                         bf.setVisible(true);
-                                        Listener ltr = new Listener(sct);
+                                        Listener ltr = new Listener(sct, bf);
                                     }
                                     else
                                         JOptionPane.showMessageDialog(jd, "Проверьте правильность ввода");
@@ -135,6 +130,8 @@ public class Login extends JFrame {
                     panel.add(t2);
                     panel.add(l4);
                     panel.add(cb);
+                    panel.setLayout(new GridLayout(4, 2, 30, 30));
+                    panel.setBorder(new EmptyBorder(30,30,30,30));
                     panel.repaint();
                     f.setCharAt(0,'1');
                     panel.validate();
@@ -148,6 +145,8 @@ public class Login extends JFrame {
                     panel.remove(t2);
                     panel.remove(l4);
                     panel.remove(cb);
+                    panel.setLayout(new GridLayout(2, 2, 30, 30));
+                    panel.setBorder(new EmptyBorder(80,30,80,30));
                     panel.repaint();
                     f.setCharAt(0,'0');
                     panel.validate();
@@ -157,12 +156,15 @@ public class Login extends JFrame {
             bpanel.add(db2);
             bpanel.add(db3);
             bpanel.setBorder(new EmptyBorder(20,20,20,20));
+            panel.setLayout(new GridLayout(2, 2, 30, 30));
+            panel.setBorder(new EmptyBorder(80,30,80,30));
             getContentPane().add(panel, BorderLayout.CENTER);
             getContentPane().add(bpanel, BorderLayout.SOUTH);
         }catch(Exception e)
         {
             System.out.println(e.getMessage());
             JOptionPane.showMessageDialog(jd, "Ошибка подключения к серверу");
+            System.exit(0);
 
         }
     }

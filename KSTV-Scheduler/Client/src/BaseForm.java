@@ -5,6 +5,7 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -39,6 +40,22 @@ public class BaseForm extends JFrame {
         this.sct = sct;
     }
     public void initialize(final JFrame jf, String log, String pass, final StringBuilder cookie) {
+        Timer tim = new Timer(3500000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                try {
+                    PrintWriter w = new PrintWriter(sct.getOutputStream());
+                    String[] mas = new String[1];
+                    mas[0] = "prolongate";
+                    Shared.putParts(mas, w);
+                }
+                catch (Exception ex)
+                {
+                    System.out.println(ex.getMessage());
+                }
+            }
+        });
+        tim.start();
         JPanel buttonPanel = new JPanel(new GridLayout(0, 1, 30, 30));
         JButton b1 = new JButton("Create user");
         buttonPanel.setBorder(new EmptyBorder(30, 10, 10, 10));
@@ -342,7 +359,22 @@ public class BaseForm extends JFrame {
                 public void actionPerformed(ActionEvent e) {
                     try
                     {
-                        Sender.stop();
+                        PrintWriter w = new PrintWriter(sct.getOutputStream());
+                        String[] mas = new String[1];
+                        mas[0]="logout";
+                        Shared.putParts(mas, w);
+
+                        URL url = new URL("http://localhost:8080/Server/hello/logout");
+                        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                        con.setRequestMethod("PUT");
+                        con.setRequestProperty("Cookie", cookie.toString());
+                        int responseCode = con.getResponseCode();
+                        System.out.println(responseCode);
+
+                        dispose();
+                        Login lg = new Login();
+                        lg.initialize();
+                        lg.setVisible(true);
                     }
                     catch (Exception ex)
                     {

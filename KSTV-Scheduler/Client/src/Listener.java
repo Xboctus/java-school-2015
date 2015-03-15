@@ -13,30 +13,36 @@ import java.util.Scanner;
 public class Listener extends Thread{
     private Socket sct;
     private static JTextArea ta;
-    public Listener(Socket sct)
+    private static JFrame jf;
+    public Listener(Socket sct, JFrame jf)
     {
         this.sct = sct;
         ta = BaseForm.tp;
+        this.jf = jf;
         setDaemon(true);
         start();
     }
     public void run()
     {
         try{
-            /*InputStream is = sct.getInputStream();
-            byte buf[] = new byte[64*1024];
-            int r = is.read(buf);
-            String data = new String(buf, 0, r);
-            ta.append(data+"\n");
-            sct.close();*/
             BufferedReader in = new BufferedReader(new InputStreamReader(sct.getInputStream()));
-            Scanner sc = new Scanner(in);
-            sc.useDelimiter("\u001E");
             while (true)
             {
-                String s = sc.next();
-                ta.append(s+"\n");
-                System.out.print(s+"\n");
+                Shared.GetPartsResult gp = Shared.getParts2(in);
+                if (gp.parts[0].equals("event"))
+                    for (String s:gp.parts)
+                    {
+                        ta.append(s+"\n");
+                    }
+                if (gp.parts[0].equals("invalidated"))
+                    JOptionPane.showMessageDialog(jf, "Соединение признано недействительным");
+                if (gp.parts[0].equals("shutdown"))
+                    JOptionPane.showMessageDialog(jf, "Сервер завершил работу");
+                for (String s:gp.parts)
+                {
+                    //ta.append(s+"\n");
+                    System.out.println(s);
+                }
             }
 
         }catch (Exception e)

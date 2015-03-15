@@ -8,7 +8,7 @@ import java.util.Scanner;
  * Created by Pavel on 17.02.2015.
  */
 public class Sender {
-    public static int message(int nsct, JTextArea t) throws Exception
+    /*public static int message(int nsct, JTextArea t) throws Exception
     {
         URL url = new URL("http://localhost:8080/Server/hello");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
@@ -36,15 +36,15 @@ public class Sender {
         w.flush();
 
         Listener l = new Listener(sock);
-        /*while ((inputLine = in.readLine()) != null) {
+        while ((inputLine = in.readLine()) != null) {
             response.append(inputLine);
         }
-        in.close();*/
+        in.close();
         System.out.println(res);
         System.out.println(soc);
         //System.out.println(response.toString());
         return responseCode;
-    }
+    }*/
     public static int create(String login, String pass, String zone, boolean active, StringBuilder cookies) throws Exception
     {
         URL url = new URL("http://localhost:8080/Server/hello/users");
