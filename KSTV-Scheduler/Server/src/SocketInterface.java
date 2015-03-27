@@ -1,11 +1,26 @@
 import java.util.*;
 import java.io.*;
+import java.nio.channels.*;
 import java.net.*;
-import java.nio.channels.ClosedByInterruptException;
 import java.sql.*;
 
 // TODO: use NIO for scheme "multiple connections - single handler"
 public final class SocketInterface {
+	public enum CommandStatement implements DbConnector.StatementType {
+		USER_LOGIN		("SELECT userID, active FROM Users WHERE name = ? AND pass = ?");
+
+		private final String statementStr;
+
+		CommandStatement(String statementStr) {
+			this.statementStr = statementStr;
+		}
+
+		@Override
+		public String getStatement() {
+			return statementStr;
+		}
+	}
+
 	private static ServerSocket serverSocket = null;
 	private static Vector<ConnectionHandler> conHandlers; // TODO: use thread pool
 	private static ConnectionDispatcher conDispatcher;
@@ -45,18 +60,26 @@ public final class SocketInterface {
 			@Override
 			public String[] handle(String[] parts) {
 				String result = "internal_error";
+				int userId;
+				boolean active;
 				try (
-					PreparedStatement statement = DbConnector.createStatement(DbConnector.ActionStatement.AUTHENTICATE);
+					PreparedStatement statement = DbConnector.createStatement(CommandStatement.USER_LOGIN);
 				) {
 					statement.setString(1, parts[1]);
 					statement.setString(2, parts[2]);
 					try (ResultSet rs = statement.executeQuery()) {
-						result = rs.next() ? "login_valid" : "login_invalid";
+						if (rs.next()) {
+							result = "login_valid";
+							userId = rs.getInt("userID");
+							active = rs.getBoolean("active");
+						} else {
+							result = "login_invalid";
+						}
 					} catch (SQLException e) {
-						Server.log_exc("Result set related exception occured", e);
+						Server.logExc("Result set related exception occured", e);
 					}
 				} catch (SQLException e) {
-					Server.log_exc("Statement related exception occured", e);
+					Server.logExc("Statement related exception occured", e);
 				}
 				if (result.equals("login_valid")) {
 					name = parts[1];
@@ -122,7 +145,7 @@ public final class SocketInterface {
 								Shared.putParts(new String[] {"invalidated"}, ch.writer);
 							}
 						} catch (IOException e) {
-							Server.log_exc("Sending response failed", e);
+							Server.logExc("Sending response failed", e);
 							ch.interruptCause = InterruptCause.ASYNC_FAIL;
 							ch.interrupt();
 						}
@@ -150,13 +173,13 @@ public final class SocketInterface {
 					Shared.putParts(new String[] {"connect_ack"}, writer);
 				}
 			} catch (IOException e) {
-				Server.log_exc("Sending connect_ack failed", e);
+				Server.logExc("Sending connect_ack failed", e);
 				Thread.currentThread().interrupt();
 			}
 
 			boolean interrupted;
 			while (!(interrupted = Thread.interrupted())) {
-				Shared.GetPartsResult r = Shared.getParts2(reader);
+				Shared.GetPartsResult r = Shared.getParts(reader);
 
 				if (r.ioe instanceof SocketTimeoutException) {
 					try {
@@ -164,7 +187,7 @@ public final class SocketInterface {
 							Shared.putParts(new String[] {"timeout"}, writer);
 						}
 					} catch (IOException e) {
-						Server.log_exc("Sending error failed", e);
+						Server.logExc("Sending error failed", e);
 					}
 					break;
 				}
@@ -172,13 +195,14 @@ public final class SocketInterface {
 					interrupted = true;
 					break;
 				}
+				// TODO: r.ioe instanceof SocketException because of interrupt
 				if (r.ioe != null || r.endOfStream) {
 					try {
 						synchronized (writer) {
 							Shared.putParts(new String[] {"io_error"}, writer);
 						}
 					} catch (IOException e) {
-						Server.log_exc("Sending error failed", e);
+						Server.logExc("Sending error failed", e);
 					}
 					break;
 				}
@@ -208,7 +232,7 @@ public final class SocketInterface {
 						Shared.putParts(respParts, writer);
 					}
 				} catch (IOException e) {
-					Server.log_exc("Writing reponse parts failed", e);
+					Server.logExc("Writing reponse parts failed", e);
 				}
 			}
 
@@ -228,14 +252,14 @@ public final class SocketInterface {
 						}
 					}
 				} catch (IOException e) {
-					Server.log_exc("Writing reponse parts failed", e);
+					Server.logExc("Writing reponse parts failed", e);
 				}
 			}
 
 			try {
 				socket.close();
 			} catch (IOException e) {
-				Server.log_exc("socket.close() failed", e);
+				Server.logExc("socket.close() failed", e);
 			}
 
 			if (allowSelfRemoval) {
@@ -266,7 +290,7 @@ public final class SocketInterface {
 				} catch (SocketException e) { // from serverSocket.close()
 					break;
 				} catch (IOException e) { // from serverSocket.accept()
-					Server.log_exc("serverSocket.accept() failed", e);
+					Server.logExc("serverSocket.accept() failed", e);
 					continue;
 				}
 
@@ -279,18 +303,18 @@ public final class SocketInterface {
 					ins = socket.getInputStream();
 					socket.setSoTimeout((CLIENT_TIMEOUT + 5)*60*1000);
 				} catch (IOException e) {
-					Server.log_exc("Socket initialization failed", e);
+					Server.logExc("Socket initialization failed", e);
 					if (outs != null) {
 						try (BufferedWriter pw = new BufferedWriter(new OutputStreamWriter(outs))) {
 							Shared.putParts(new String[] {"io_error"}, pw);
 						} catch (IOException e2) {
-							Server.log_exc("Socket output stream related exception occured", e2);
+							Server.logExc("Socket output stream related exception occured", e2);
 						}
 					}
 					try {
 						socket.close();
 					} catch (IOException e2) {
-						Server.log_exc("Closing socket failed", e);
+						Server.logExc("Closing socket failed", e);
 					}
 					continue;
 				}
@@ -307,7 +331,7 @@ public final class SocketInterface {
 				try {
 					ch.join();
 				} catch (InterruptedException e) {
-					Server.log_exc("ch.join() was interrupted", e);
+					Server.logExc("ch.join() was interrupted", e);
 				}
 			}
 

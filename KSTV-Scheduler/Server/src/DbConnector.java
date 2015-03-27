@@ -4,21 +4,15 @@ import java.nio.file.*;
 import java.sql.*;
 
 public final class DbConnector {
+	// TODO: use connection pool
 	private static Connection dbCon;
 
-	public enum ActionStatement {
-		AUTHENTICATE("SELECT 1 FROM Users WHERE name = ? AND pass = ?"),
-		CREATE_USER("INSERT INTO Users (name, pass, timezone, active) values (?, ?, ?, ?)");
-
-		private String statementStr;
-
-		ActionStatement(String statementStr) {
-			this.statementStr = statementStr;
-		}
+	public interface StatementType {
+		String getStatement();
 	}
 
-	public static PreparedStatement createStatement(ActionStatement type) throws SQLException {
-		return dbCon.prepareStatement(type.statementStr);
+	public static PreparedStatement createStatement(StatementType type) throws SQLException {
+		return dbCon.prepareStatement(type.getStatement());
 	}
 
 	public static void init() throws IOException, ClassNotFoundException, SQLException {
