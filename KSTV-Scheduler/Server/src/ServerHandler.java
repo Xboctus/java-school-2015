@@ -54,8 +54,8 @@ public final class ServerHandler {
 			st.setString(1, name);
 			try (ResultSet rs = st.executeQuery()) {
 				if (rs.next()) {
-					result.active = rs.getBoolean("active");
 					result.timeZone = TimeZone.getTimeZone(rs.getString("timezone"));
+					result.active = rs.getBoolean("active");
 					result.eventCount = 0;
 					result.error = HandlingError.NO_ERROR;
 				} else {
