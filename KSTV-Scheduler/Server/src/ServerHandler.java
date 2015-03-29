@@ -3,33 +3,31 @@ import java.util.regex.*;
 import java.text.*;
 import java.sql.*;
 
-public final class ServerHandler {
-	public enum ActionStatement implements DbConnector.StatementType {
-		OWN_INFO		("SELECT Users.timezone, Users.active, count(Evnts.eventID) as event_count" +
-						" FROM Users INNER JOIN Evnts ON Users.userID = Evnts.userID" +
-						" WHERE Users.name = ?"),
-//		GET_USED_ID		("SELECT userID FROM Users WHERE name = ?"),
-		EVENTS			("SELECT 'X' AS dtime, '' AS msg FROM Users WHERE name = ?" +
-						" UNION" +
-						" SELECT dtime, msg FROM Evnts WHERE userID IN" +
-						"(SELECT userID FROM Users WHERE name = ?)"),
-		AUTHENTICATE	("SELECT 1 FROM Users WHERE name = ? AND pass = ?"),
-		CHANGE_PASSWORD	("UPDATE Users SET pass = ? WHERE name = ? AND pass = ?"),
-		CHANGE_TIMEZONE	("UPDATE Users SET timezone = ? WHERE name = ?"),
-		CHANGE_ACTIVE	("UPDATE Users SET active = ? WHERE name = ?");
+enum ActionStatement implements DbConnector.StatementType {
+	OWN_INFO		("SELECT timezone, active FROM Users WHERE Users.name = ?"),
+//	GET_USED_ID		("SELECT userID FROM Users WHERE name = ?"),
+	EVENTS			("SELECT 'X' AS dtime, '' AS msg FROM Users WHERE name = ?" +
+					" UNION" +
+					" SELECT dtime, msg FROM Evnts WHERE userID IN" +
+					"(SELECT userID FROM Users WHERE name = ?)"),
+	AUTHENTICATE	("SELECT 1 FROM Users WHERE name = ? AND pass = ?"),
+	CHANGE_PASSWORD	("UPDATE Users SET pass = ? WHERE name = ? AND pass = ?"),
+	CHANGE_TIMEZONE	("UPDATE Users SET timezone = ? WHERE name = ?"),
+	CHANGE_ACTIVE	("UPDATE Users SET active = ? WHERE name = ?");
 
-		private final String statementStr;
+	private final String statementStr;
 
-		ActionStatement(String statementStr) {
-			this.statementStr = statementStr;
-		}
-
-		@Override
-		public String getStatement() {
-			return statementStr;
-		}
+	ActionStatement(String statementStr) {
+		this.statementStr = statementStr;
 	}
 
+	@Override
+	public String getStatement() {
+		return statementStr;
+	}
+}
+
+public final class ServerHandler {
 	public enum HandlingError {
 		NO_ERROR,
 		UNAUTHORIZED,
@@ -56,9 +54,9 @@ public final class ServerHandler {
 			st.setString(1, name);
 			try (ResultSet rs = st.executeQuery()) {
 				if (rs.next()) {
-					result.active = rs.getBoolean("Users.active");
-					result.timeZone = TimeZone.getTimeZone(rs.getString("Users.timezone"));
-					result.eventCount = rs.getInt("event_count");
+					result.active = rs.getBoolean("active");
+					result.timeZone = TimeZone.getTimeZone(rs.getString("timezone"));
+					result.eventCount = 0;
 					result.error = HandlingError.NO_ERROR;
 				} else {
 					result.error = HandlingError.NO_SUCH_USER;
