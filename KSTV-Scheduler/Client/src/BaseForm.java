@@ -5,6 +5,9 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.BufferedReader;
+import java.io.DataOutputStream;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.ServerSocket;
@@ -14,10 +17,8 @@ import java.sql.*;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.Date;
-import java.util.Formatter;
-import java.util.TimeZone;
 import javax.swing.text.DateFormatter;
 import javax.swing.text.DefaultFormatterFactory;
 import javax.swing.text.MaskFormatter;
@@ -40,7 +41,7 @@ public class BaseForm extends JFrame {
         this.sct = sct;
     }
     public void initialize(final JFrame jf, String log, String pass, final StringBuilder cookie) {
-        Timer tim = new Timer(3500000, new ActionListener() {
+        /*Timer tim = new Timer(3500000, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
                 try {
@@ -55,7 +56,7 @@ public class BaseForm extends JFrame {
                 }
             }
         });
-        tim.start();
+        tim.start();*/
         JPanel buttonPanel = new JPanel(new GridLayout(0, 1, 30, 30));
         JButton b1 = new JButton("Create user");
         buttonPanel.setBorder(new EmptyBorder(30, 10, 10, 10));
@@ -133,27 +134,20 @@ public class BaseForm extends JFrame {
                         jd.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
                         JLabel l1 = new JLabel("Text");
                         JLabel l2 = new JLabel("Time");
-                        JLabel l3 = new JLabel("User");
                         JPanel panel = new JPanel(new GridLayout(4, 2, 30, 30));
                         MaskFormatter mf = createFormatter("##.##.####-##:##:##");
                         mf.setPlaceholderCharacter('0');
                         final JTextField t1 = new JTextField();
                         final JTextField t2 = new JFormattedTextField(mf);
-                        final JTextField t3 = new JTextField();
                         panel.setPreferredSize(new Dimension(jd.getWidth() / 2, jd.getHeight()));
                         panel.add(l1);
                         panel.add(t1);
                         panel.add(l2);
                         panel.add(t2);
-                        panel.add(l3);
-                        panel.add(t3);
                         JButton db = new JButton("OK");
                         db.addActionListener(new ActionListener() {
                             @Override
                             public void actionPerformed(ActionEvent e) {
-                                if (t3.getText().trim().length() == 0)
-                                    tp.append("Введите имя пользователя\n");
-                                else {
                                     if (t1.getText().trim().length() == 0)
                                         tp.append("Введите текст сообщения\n");
                                     else {
@@ -166,7 +160,6 @@ public class BaseForm extends JFrame {
                                             JOptionPane.showMessageDialog(jd, "Ошибка соединения");
                                         }
                                     }
-                                }
                             }
                         });
                         panel.add(db);
@@ -190,31 +183,17 @@ public class BaseForm extends JFrame {
                     jd.setLocationRelativeTo(jf);
                     final JPanel jp = new JPanel(new GridLayout(0, 3, 20, 20));
                     JLabel l1 = new JLabel("User");
-                    JButton jb = new JButton("OK");
-                    final JTextField t1 = new JTextField();
+                    JLabel l2 = new JLabel(login);
                     jp.add(l1);
-                    jp.add(t1);
-                    jp.add(jb);
+                    jp.add(l2);
                     jp.setBorder(new EmptyBorder(10, 10, 10, 10));
-                    final JLabel la = new JLabel("");
-                    final JLabel lt = new JLabel("");
-                    jp.add(la);
-                    jp.add(lt);
-                    jb.addActionListener(new ActionListener() {
-                        @Override
-                        public void actionPerformed(ActionEvent e) {
-                            try {
-                                jd.add(Sender.showInfo(tp, login));
-                                jd.repaint();
-                                jd.setVisible(true);
-                            } catch (Exception ex) {
-                                JOptionPane.showMessageDialog(jd, "Ошибка соединения");
-                            }
-                        }
-                    });
-
-
                     jd.getContentPane().add(jp, BorderLayout.NORTH);
+                    try {
+                        JTable table = Sender.showInfo(tp, cookie);
+                        jd.add(new JScrollPane(table));
+                    }catch (Exception ex) {
+                        JOptionPane.showMessageDialog(jd, "Ошибка соединения");
+                    }
                     jd.setVisible(true);
                 }
             });
@@ -235,13 +214,14 @@ public class BaseForm extends JFrame {
                 public void actionPerformed(ActionEvent e) {
                     final JDialog jd = new JDialog();
                     jd.setTitle("Login");
-                    jd.setSize(300, 250);
+                    jd.setSize(400, 350);
                     jd.setResizable(false);
                     jd.setLocationRelativeTo(jf);
                     jd.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
                     JLabel l1 = new JLabel("Name");
                     final JLabel l2 = new JLabel("Timezone");
-                    JLabel l3 = new JLabel("Password");
+                    JLabel l3 = new JLabel("Old password");
+                    JLabel l5 = new JLabel("New password");
                     JLabel l4 = new JLabel("Active");
                     String formatter = "?";
                     for (int i = 0; i < 254; i++)
@@ -253,19 +233,46 @@ public class BaseForm extends JFrame {
                     mf.setValidCharacters("+-0123456789");
                     final JFormattedTextField t2 = new JFormattedTextField(mf);
                     final JTextField t3 = new JTextField();
+                    final JTextField t5 = new JTextField();
                     final JCheckBox t4 = new JCheckBox();
-                    final JPanel panel = new JPanel(new GridLayout(3, 2, 30, 30));
+                    final JPanel panel = new JPanel(new GridLayout(5, 0, 30, 30));
                     panel.setPreferredSize(new Dimension(jd.getWidth() / 2, jd.getHeight()));
-                    panel.add(l1);
-                    panel.add(t1);
+                    //panel.add(l1);
+                    //panel.add(t1);
+                    panel.add(l2);
+                    panel.add(t2);
+                    panel.add(l4);
+                    panel.add(t4);
                     panel.add(l3);
                     panel.add(t3);
+                    panel.add(l5);
+                    panel.add(t5);
+                    try {
+                        URL url = new URL("http://localhost:8080/Server/hello/users/:me");
+                        HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                        con.setRequestMethod("GET");
+                        con.setRequestProperty("Cookie", cookie.toString());
+                        int responseCode = con.getResponseCode();
+                        System.out.println(responseCode);
+                        BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                        Shared.GetPartsResult pr = Shared.getParts(in);
+                        t1.setText(login);
+                        t2.setText(pr.parts[0]);
+                        t4.setSelected((pr.parts[1].equals("true"))?true:false);
+                    }
+                    catch (Exception ex)
+                    {
+                        JOptionPane.showMessageDialog(jd, "Ошибка соединения");
+                    }
+                    final String oldLogin = t1.getText();
+                    final String oldGMT = t2.getText();
+                    final boolean oldActive = t4.isSelected();
                     final StringBuilder f = new StringBuilder("0");
                     JButton db = new JButton("OK");
                     db.addActionListener(new ActionListener() {
                         @Override
                         public void actionPerformed(ActionEvent e) {
-                            if (t1.getText().trim().length() == 0)
+                            /*if (t1.getText().trim().length() == 0)
                                 JOptionPane.showMessageDialog(jd, "Введите имя пользователя");
                             else {
                                 if (t3.getText().trim().length() == 0)
@@ -279,8 +286,47 @@ public class BaseForm extends JFrame {
                                     } catch (Exception ex) {
                                         JOptionPane.showMessageDialog(jd, "Ошибка соединения");
                                     }
+                            }*/
+                            if (((t3.getText().trim().length()==0)&&(t5.getText().trim().length()!=0))||
+                                    ((t3.getText().trim().length()!=0)&&(t5.getText().trim().length()==0)))
+                            {
+                                JOptionPane.showMessageDialog(jd, "Пустой пароль недопустим");
                             }
-
+                            else {
+                                //ArrayList<String> mas = new ArrayList<String>();
+                                String prm = "";
+                                if (!t2.getText().trim().equals(oldGMT)) {
+                                    prm += "new_timezone=" + t2.getText().trim()+"\u001F";
+                                }
+                                if (t4.isSelected() ^ oldActive) {
+                                    prm += "new_active=" + (t4.isSelected() ? "true" : "false")+"\u001F";
+                                }
+                                if (t5.getText().trim().length()!=0)
+                                {
+                                    prm += ("old_password=" + t3.getText().trim()+"\u001F");
+                                    prm += ("new_password=" + t5.getText().trim()+"\u001F");
+                                }
+                                try {
+                                    URL url = new URL("http://localhost:8080/Server/hello/users/:me");
+                                    HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                                    con.setRequestMethod("PUT");
+                                    con.setRequestProperty("Cookie", cookie.toString());
+                                    con.setDoOutput(true);
+                                    DataOutputStream os = new DataOutputStream(con.getOutputStream());
+                                    os.writeBytes(prm+"\u001E");
+                                    os.flush();
+                                    os.close();
+                                    int responseCode = con.getResponseCode();
+                                    if (responseCode == 200) {
+                                        JOptionPane.showMessageDialog(jd, "Данные успешно изменены");
+                                        jd.dispose();
+                                    }
+                                    else
+                                        JOptionPane.showMessageDialog(jd, "Неверен текущий пароль или временная зона");
+                                } catch (Exception ex) {
+                                    JOptionPane.showMessageDialog(jd, "Ошибка ввода");
+                                }
+                            }
                         }
                     });
                     panel.add(db);

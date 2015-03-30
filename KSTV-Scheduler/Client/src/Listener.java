@@ -28,7 +28,7 @@ public class Listener extends Thread{
             BufferedReader in = new BufferedReader(new InputStreamReader(sct.getInputStream()));
             while (true)
             {
-                Shared.GetPartsResult gp = Shared.getParts2(in);
+                Shared.GetPartsResult gp = Shared.getParts(in);
                 if (gp.parts[0].equals("event"))
                     for (String s:gp.parts)
                     {

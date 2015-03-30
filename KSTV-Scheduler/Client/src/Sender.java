@@ -8,55 +8,22 @@ import java.util.Scanner;
  * Created by Pavel on 17.02.2015.
  */
 public class Sender {
-    /*public static int message(int nsct, JTextArea t) throws Exception
-    {
-        URL url = new URL("http://localhost:8080/Server/hello");
-        HttpURLConnection con = (HttpURLConnection)url.openConnection();
-        con.setRequestMethod("POST");
-        String prm = "action=test&login=Pavel";
-        con.setDoOutput(true);
-        DataOutputStream os = new DataOutputStream(con.getOutputStream());
-        os.writeBytes(prm);
-        os.flush();
-        os.close();
-        int responseCode = con.getResponseCode();
-        System.out.println(responseCode);
-        BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
-        String inputLine;
-        StringBuffer response = new StringBuffer();
-        Scanner sc = new Scanner(in);
-        String res = sc.next();
-        //String id = in.readLine();
-        String soc = sc.next();
-        Socket sock = new Socket(InetAddress.getByName("localhost"),Integer.parseInt(soc));
-        PrintWriter w = new PrintWriter(sock.getOutputStream());
-        String s = con.getHeaderField("Set-Cookie");
-        System.out.print(s.substring(11, 11+32));
-        w.print(s.substring(11, 11+32)+ "\n");
-        w.flush();
-
-        Listener l = new Listener(sock);
-        while ((inputLine = in.readLine()) != null) {
-            response.append(inputLine);
-        }
-        in.close();
-        System.out.println(res);
-        System.out.println(soc);
-        //System.out.println(response.toString());
-        return responseCode;
-    }*/
     public static int create(String login, String pass, String zone, boolean active, StringBuilder cookies) throws Exception
     {
         URL url = new URL("http://localhost:8080/Server/hello/users");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
         con.setRequestMethod("POST");
-        String act = (active)?"active":"passive";
-        String prm = login+"\u001F"+pass+"\u001F"+zone+"\u001F"+act+"\u001E";
+        //String act = (active)?"active":"passive";
+        //String prm = login+"\u001F"+pass+"\u001F"+zone+"\u001F"+act+"\u001E";
         con.setDoOutput(true);
         DataOutputStream os = new DataOutputStream(con.getOutputStream());
-        os.writeBytes(prm);
-        os.flush();
-        os.close();
+        PrintWriter w = new PrintWriter(os);
+        //os.writeBytes(prm);
+        //os.flush();
+        //os.close();
+        String[] mas = new String[4];
+        mas[0] = login; mas[1] = pass; mas[2] = zone; mas[3] = (active)?"true":"false";
+        Shared.putParts(mas,w);
         int responseCode = con.getResponseCode();
         System.out.println(responseCode);
 
@@ -131,33 +98,23 @@ public class Sender {
         System.out.println(responseCode);
         return responseCode;
     }
-    public static JTable showInfo(JTextArea tp, String log) throws Exception
+    public static JTable showInfo(JTextArea tp,StringBuilder cookie) throws Exception
     {
-        URL url = new URL("http://localhost:8080/Server/hello");
+        URL url = new URL("http://localhost:8080/Server/hello/users/:me/events");
         HttpURLConnection con = (HttpURLConnection)url.openConnection();
-        con.setRequestMethod("PUT");
-        String prm = "action=user_info"+"&login="+log;
-        con.setDoOutput(true);
-        DataOutputStream os = new DataOutputStream(con.getOutputStream());
-        os.writeBytes(prm);
-        os.flush();
-        os.close();
+        con.setRequestMethod("GET");
+        con.setRequestProperty("Cookie", cookie.toString());
         int responseCode = con.getResponseCode();
         System.out.println(responseCode);
         BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
-        String inputLine;
-        StringBuffer response = new StringBuffer();
+        Shared.GetPartsResult pr = Shared.getParts(in);
+        int n = Integer.parseInt(pr.parts[0]);
         Object[] cn = {"Time", "Text"};
-        Object[][] cs = new Object[100][2];
-        int i = 0;
-        while ((inputLine = in.readLine()) != null) {
-            if (i % 2 == 0) {
-                SimpleDateFormat df = new SimpleDateFormat("dd.MM.yyyy-HH:mm:ss");
-                cs[i/2][0] = df.format(df.parse(inputLine).getTime() - 3600000);
-            }
-            else
-                cs[i/2][1] = inputLine;
-            i++;
+        Object[][] cs = new Object[n][2];
+        for (int i = 1; i <= n; i++)
+        {
+            cs[i-1][0] = pr.parts[i*2-1];
+            cs[i-1][1] = pr.parts[i*2];
         }
         in.close();
         return new JTable(cs,cn);
