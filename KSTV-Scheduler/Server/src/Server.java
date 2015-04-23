@@ -1,21 +1,35 @@
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.util.TimeZone;
 import java.util.regex.Pattern;
-import java.io.*;
 
-import javax.servlet.*;
-import javax.servlet.http.*;
+import javax.servlet.ServletContext;
+import javax.servlet.ServletException;
+import javax.servlet.UnavailableException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 
 @SuppressWarnings("serial")
 public class Server extends HttpServlet {
-	public static ServletContext servletContext;
+	private static ServletContext servletContext;
 
-	public static void logExc(String msg, Throwable exc) {
+	public static String getRealPath(String path) {
+		return servletContext.getRealPath(path);
+	}
+
+	private static void logExc(String msg, Throwable exc) {
 		servletContext.log(msg, exc);
 	}
 
 	@Override
 	public void init() throws UnavailableException {
 		servletContext = getServletContext();
+
+		EventTimer.startTimer();
+
 		try {
 			DbConnector.init();
 		} catch (Exception e) {
@@ -23,56 +37,61 @@ public class Server extends HttpServlet {
 			ue.initCause(e);
 			throw ue;
 		}
+
 		try {
-			SocketInterface.init();
+			ConnectionDispatcher.init();
 		} catch (Exception e) {
-			logExc("SocketInterface.init() failed", e);
+			logExc("ConnectionDispatcher.init() failed", e);
 		}
-		EventTimer.startTimer();
 	}
 
 	@Override
 	public void destroy() {
+		try {
+			ConnectionDispatcher.fin();
+		} catch (InterruptedException e) {
+			logExc("ConnectionDispatcher.fin() was interrupted", e);
+		}
+		for (Exception e: ConnectionDispatcher.finExceptions) {
+			logExc("Exception during ConnectionDispatcher.fin()", e);
+		}
+
+		try {
+			DbConnector.fin();
+		} catch (Exception e) {
+			logExc("DbConnector.fin()", e);
+		}
+
 		EventTimer.stopTimer();
-		try {
-			SocketInterface.destroy();
-		} catch (Exception e) {
-			logExc("SocketInterface.destroy() failed", e);
-		}
-		try {
-			DbConnector.destroy();
-		} catch (Exception e) {
-			logExc("DbConnector.destroy() failed", e);
-		}
+
 		servletContext = null;
 	}
 
 	private static class Response {
 		public static final ThreadLocal<String> debugInfo = new ThreadLocal<>();
 
-		private int statusCode;
-		private String[] parts;
+		private final int statusCode;
+		private final String[] parts;
 
-		private Response(int statusCode) {
+		private Response(int statusCode, String... parts) {
 			this.statusCode = statusCode;
-			this.parts = new String[] {};
-		}
-
-		public Response(String[] parts) {
-			this.statusCode = HttpServletResponse.SC_OK;
 			this.parts = parts;
 		}
 
+		private Response(int statusCode) {
+			this(statusCode, new String[] {});
+		}
+
+		public Response(String... parts) {
+			this(HttpServletResponse.SC_OK, parts);
+		}
+
 		public static Response badRequest(String reason) {
-			Response response = new Response(HttpServletResponse.SC_BAD_REQUEST);
-			response.parts = new String[] {reason};
-			return response;
+			return new Response(HttpServletResponse.SC_BAD_REQUEST, new String[] {reason});
 		}
 
 		public static Response unauthorized(String reason) {
-			Response response = new Response(HttpServletResponse.SC_UNAUTHORIZED);
-			response.parts = new String[] {reason};
-			return response;
+			return new Response(HttpServletResponse.SC_UNAUTHORIZED, new String[] {reason});
 		}
 
 		public static final Response OK_RESPONSE = new Response(HttpServletResponse.SC_OK);
@@ -89,7 +108,7 @@ public class Server extends HttpServlet {
 				res.addHeader("X-Debug", debug);
 			}
 			try (PrintWriter pw = res.getWriter()) {
-				Shared.putParts(parts, pw);
+				Shared.putParts(pw, parts);
 			}
 		}
 	}
@@ -204,9 +223,7 @@ public class Server extends HttpServlet {
 	}
 
 	private static Response serveGetEventPort() {
-		return new Response(new String[] {
-			Integer.toString(SocketInterface.getEventPort())
-		});
+		return new Response(Integer.toString(ConnectionDispatcher.eventPort));
 	}
 
 	private static Response serveGetOwnInfo(HttpServletRequest req) throws Exception {
@@ -220,11 +237,11 @@ public class Server extends HttpServlet {
 			throw new Exception("No such user");
 		}
 		assert ownInfo.error == ServerHandler.HandlingError.NO_ERROR;
-		return new Response(new String[] {
+		return new Response(
 			ownInfo.timeZone.getID(),
 			Boolean.toString(ownInfo.active),
 			Integer.toString(ownInfo.eventCount)
-		});
+		);
 	}
 
 	private static Response serveGetOwnEvents(HttpServletRequest req) throws Exception {

@@ -1,33 +1,29 @@
-import java.util.*;
-import java.util.regex.*;
-import java.text.*;
-import java.sql.*;
-
-enum ActionStatement implements DbConnector.StatementType {
-	OWN_INFO		("SELECT timezone, active FROM Users WHERE Users.name = ?"),
-//	GET_USED_ID		("SELECT userID FROM Users WHERE name = ?"),
-	EVENTS			("SELECT 'X' AS dtime, '' AS msg FROM Users WHERE name = ?" +
-					" UNION" +
-					" SELECT dtime, msg FROM Evnts WHERE userID IN" +
-					"(SELECT userID FROM Users WHERE name = ?)"),
-	AUTHENTICATE	("SELECT 1 FROM Users WHERE name = ? AND pass = ?"),
-	CHANGE_PASSWORD	("UPDATE Users SET pass = ? WHERE name = ? AND pass = ?"),
-	CHANGE_TIMEZONE	("UPDATE Users SET timezone = ? WHERE name = ?"),
-	CHANGE_ACTIVE	("UPDATE Users SET active = ? WHERE name = ?");
-
-	private final String statementStr;
-
-	ActionStatement(String statementStr) {
-		this.statementStr = statementStr;
-	}
-
-	@Override
-	public String getStatement() {
-		return statementStr;
-	}
-}
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class ServerHandler {
+	private enum ActionStatement {
+		OWN_INFO		("SELECT timezone, active FROM Users WHERE Users.name = ?"),
+//		GET_USED_ID		("SELECT userID FROM Users WHERE name = ?"),
+		EVENTS			("SELECT 'X' AS dtime, '' AS msg FROM Users WHERE name = ?" +
+						" UNION" +
+						" SELECT dtime, msg FROM Evnts WHERE userID IN" +
+						"(SELECT userID FROM Users WHERE name = ?)"),
+		AUTHENTICATE	("SELECT 1 FROM Users WHERE name = ? AND pass = ?"),
+		CHANGE_PASSWORD	("UPDATE Users SET pass = ? WHERE name = ? AND pass = ?"),
+		CHANGE_TIMEZONE	("UPDATE Users SET timezone = ? WHERE name = ?"),
+		CHANGE_ACTIVE	("UPDATE Users SET active = ? WHERE name = ?");
+
+		final String str;
+		ActionStatement(String str) { this.str = str; }
+	}
+
 	public enum HandlingError {
 		NO_ERROR,
 		UNAUTHORIZED,
@@ -49,7 +45,7 @@ public final class ServerHandler {
 	public static OwnInfo getOwnInfo(String name) throws SQLException {
 		OwnInfo result = new OwnInfo();
 		try (
-			PreparedStatement st = DbConnector.createStatement(ActionStatement.OWN_INFO);
+			PreparedStatement st = DbConnector.createStatement(ActionStatement.OWN_INFO.str);
 		) {
 			st.setString(1, name);
 			try (ResultSet rs = st.executeQuery()) {
@@ -130,7 +126,7 @@ public final class ServerHandler {
 */		ArrayList<Event> events = new ArrayList<>();
 		boolean userExists = false;
 		try (
-			PreparedStatement st = DbConnector.createStatement(ActionStatement.EVENTS);
+			PreparedStatement st = DbConnector.createStatement(ActionStatement.EVENTS.str);
 		) {
 			st.setString(1, name);
 			st.setString(2, name);
@@ -164,7 +160,7 @@ public final class ServerHandler {
 	 */
 	public static HandlingError login(String name, String password) throws SQLException {
 		try (
-			PreparedStatement st = DbConnector.createStatement(ActionStatement.AUTHENTICATE);
+			PreparedStatement st = DbConnector.createStatement(ActionStatement.AUTHENTICATE.str);
 		) {
 			st.setString(1, name);
 			st.setString(2, password);
@@ -186,7 +182,7 @@ public final class ServerHandler {
 	) throws SQLException {
 		if (newPassword != null) {
 			try (
-				PreparedStatement st = DbConnector.createStatement(ActionStatement.CHANGE_PASSWORD);
+				PreparedStatement st = DbConnector.createStatement(ActionStatement.CHANGE_PASSWORD.str);
 			) {
 				st.setString(1, newPassword);
 				st.setString(2, name);
@@ -198,7 +194,7 @@ public final class ServerHandler {
 		}
 		if (newTimeZone != null) {
 			try (
-				PreparedStatement st = DbConnector.createStatement(ActionStatement.CHANGE_TIMEZONE);
+				PreparedStatement st = DbConnector.createStatement(ActionStatement.CHANGE_TIMEZONE.str);
 			) {
 				st.setString(1, newTimeZone.getID());
 				st.setString(2, name);
@@ -209,7 +205,7 @@ public final class ServerHandler {
 		}
 		if (newActive != null) {
 			try (
-				PreparedStatement st = DbConnector.createStatement(ActionStatement.CHANGE_ACTIVE);
+				PreparedStatement st = DbConnector.createStatement(ActionStatement.CHANGE_ACTIVE.str);
 			) {
 				st.setBoolean(1, newActive.booleanValue());
 				st.setString(2, name);

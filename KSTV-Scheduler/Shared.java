@@ -1,5 +1,7 @@
-import java.util.*;
-import java.io.*;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
+import java.util.Arrays;
 
 /** Provides methods shared between Server and Client. */
 public final class Shared {
@@ -9,41 +11,41 @@ public final class Shared {
 	 */
 	public static final char msgPartDelimiter = '\u001F';
 
-	private static final String msgPartDelimiterStr = String.valueOf(msgPartDelimiter);
-
 	/**
 	 * Message delimiter.
 	 * <p> U+001E INFORMATION SEPARATOR TWO, a.k.a. record separator (RS).
 	 */
 	public static final char msgDelimiter = '\u001E';
 
-	/** Contains result of {@link #getParts}. */
+	/** Contains result of {@link Shared#getParts getParts}. */
 	public static class GetPartsResult {
-		/** Array of parts. Ignored part is not included in this array. */
+		/** Any exception thrown by internal IO operation. {@code null} if there isn't one. */
+		public final IOException ioe;
+
+		/** Whether end of stream was encountered. {@code false} if {@code ioe != null}. */
+		public final boolean endOfStream;
+
+		/** Read parts. Ignored part is not included in this array. */
 		public final String[] parts;
 
 		/** Ignored part. Empty if there isn't one. */
 		public final String ignoredPart;
 
-		/** Whether end of stream was encountered before first message delimiter. */
-		public final boolean endOfStream;
-
-		/** Any exception thrown by internal IO operations. null if there isn't one. */
-		public final IOException ioe;
-
-		public GetPartsResult(String[] parts, String ignoredPart, boolean endOfStream, IOException ioe) {
+		private GetPartsResult(IOException ioe, boolean endOfStream, String[] parts, String ignoredPart) {
+			this.ioe = ioe;
+			this.endOfStream = endOfStream;
 			this.parts = parts;
 			this.ignoredPart = ignoredPart;
-			this.endOfStream = endOfStream;
-			this.ioe = ioe;
 		}
 	}
+
+	private static final String msgPartDelimiterStr = String.valueOf(msgPartDelimiter);
 
 	/**
 	 * Reads a message from a reader and splits it into parts.
 	 * <p> Skips the reader past the first message delimiter found, than splits the read string into message parts.
-	 * @param	reader A reader to read from.
-	 * @return	A {@link #GetPartsResult} containing parts, error info and possibly thrown exception.
+	 * @param	reader A reader to read from. (Preferably buffered for better performance.)
+	 * @return	A {@link GetPartsResult} containing parts and information about errors.
 	 */
 	public static GetPartsResult getParts(Reader reader) {
 		StringBuilder sb = new StringBuilder();
@@ -67,7 +69,7 @@ public final class Shared {
 		String ignoredPart = parts[parts.length - 1];
 		parts = Arrays.copyOfRange(parts, 0, parts.length - 1);
 
-		return new GetPartsResult(parts, ignoredPart, endOfStream, ioe);
+		return new GetPartsResult(ioe, endOfStream, parts, ignoredPart);
 	}
 
 	/**
@@ -75,13 +77,24 @@ public final class Shared {
 	 * @param	parts Message parts to write.
 	 * @param	writer A writer to write to.
 	 * @throws	IOException If any writing operation fails.
+	 * @deprecated	Use putParts(Writer, String...) instead.
 	 */
+	@Deprecated
 	public static void putParts(String[] parts, Writer writer) throws IOException {
+		putParts(writer, parts);
+	}
+
+	/**
+	 * Writes message parts to a writer.
+	 * @param	writer A writer to write to.
+	 * @param	parts Message parts to write.
+	 * @throws	IOException If any writing operation fails.
+	 */
+	public static void putParts(Writer writer, String... parts) throws IOException {
 		for (String part: parts) {
 			writer.write(part);
 			writer.write(msgPartDelimiter);
 		}
-
 		writer.write(msgDelimiter);
 		writer.flush();
 	}

@@ -9,5 +9,6 @@ public class EventTimer {
 
 	public static void stopTimer() {
 		timer.cancel();
+		timer = null;
 	}
 }
